@@ -29,6 +29,8 @@ body { padding: env(safe-area-inset-top) 0 env(safe-area-inset-bottom); }
 button { font: inherit; color: inherit; background: var(--card); border: 1px solid var(--border);
   border-radius: 8px; padding: 6px 10px; cursor: pointer; }
 button:active { background: var(--sel); }
+button.primary { background: var(--accent); border-color: var(--accent); color: #fff; }
+button.danger { color: var(--red); }
 .hidden { display: none !important; }
 .muted { color: var(--muted); }
 
@@ -96,6 +98,39 @@ li .sm { color: var(--muted); font-size: 12px; white-space: nowrap; }
 footer { text-align: center; font-size: 12px; padding: 4px 12px 24px; }
 footer.stale { color: var(--overdue); }
 #msg { text-align: center; padding: 40px 20px; }
+
+/* 수정 (폰 연결 후) */
+#day.edit li { padding: 7px 0; }
+#day.edit li .ck { width: 22px; height: 22px; margin-top: -1px; cursor: pointer; }
+#day.edit li .tx { cursor: pointer; }
+li .stb { flex: none; border: none; background: none; padding: 0 2px; margin-top: -3px;
+  font-size: 19px; line-height: 1; color: var(--muted); opacity: .45; }
+li .stb.on { color: var(--star); opacity: 1; }
+li.pending .tx::after { content: ""; display: inline-block; width: 6px; height: 6px; margin-left: 6px;
+  border-radius: 50%; background: var(--accent); vertical-align: middle; }
+form.add { margin: 4px 0 2px; }
+form.add input { width: 100%; font: inherit; font-size: 16px; color: var(--text); background: transparent;
+  border: 1px dashed var(--border); border-radius: 8px; padding: 8px 10px; }
+form.add input:focus { outline: none; border-style: solid; border-color: var(--accent); background: var(--bg); }
+#status { text-align: center; font-size: 13px; padding: 0 12px 6px; }
+#status.err { color: var(--overdue); }
+#status button { margin-left: 6px; padding: 3px 9px; font-size: 13px; }
+#sheet { position: fixed; inset: 0; z-index: 10; background: rgba(0, 0, 0, .4); display: flex; align-items: flex-end; }
+#sheet .panel { width: 100%; max-width: 560px; margin: 0 auto; background: var(--card); border-radius: 14px 14px 0 0;
+  padding: 16px 14px calc(14px + env(safe-area-inset-bottom)); display: flex; flex-direction: column; gap: 10px; }
+#sheet input, #sheet select { font: inherit; font-size: 16px; color: var(--text); background: var(--bg);
+  border: 1px solid var(--border); border-radius: 8px; padding: 9px 10px; min-width: 0; }
+#sheet .row { display: flex; gap: 6px; align-items: center; }
+#sheet .row label { flex: none; width: 34px; font-size: 14px; color: var(--muted); }
+#sheet .row input[type=date], #sheet .row select { flex: 1; }
+#ed-star.on { color: var(--star); border-color: var(--star); }
+#ed-note { font-size: 13px; }
+#ed-note:empty { display: none; }
+#sheet .actions { display: flex; gap: 8px; margin-top: 4px; }
+#sheet .actions .sp { flex: 1; }
+#toast { position: fixed; left: 50%; bottom: calc(24px + env(safe-area-inset-bottom)); transform: translateX(-50%);
+  z-index: 20; max-width: 90vw; padding: 9px 16px; border-radius: 18px; background: #303338; color: #fff;
+  font-size: 14px; text-align: center; box-shadow: 0 4px 14px rgba(0, 0, 0, .25); }
 </style>
 </head>
 <body>
@@ -125,35 +160,101 @@ footer.stale { color: var(--overdue); }
     <div id="range-note" class="muted hidden"></div>
   </section>
   <section id="day"></section>
+  <div id="status" class="muted hidden"></div>
   <footer id="updated" class="muted"></footer>
 </div>
 
+<div id="sheet" class="hidden">
+  <form class="panel" id="ed-form" autocomplete="off">
+    <input id="ed-text" maxlength="500" enterkeyhint="done" aria-label="할 일">
+    <div class="row">
+      <label for="ed-date">날짜</label><input id="ed-date" type="date">
+      <button type="button" data-q="0">오늘</button><button type="button" data-q="1">내일</button>
+    </div>
+    <div class="row"><label for="ed-sec">섹션</label><select id="ed-sec"></select></div>
+    <div class="row"><button type="button" id="ed-star"></button></div>
+    <div id="ed-note" class="muted"></div>
+    <div class="actions">
+      <button type="button" id="ed-del" class="danger">삭제</button><span class="sp"></span>
+      <button type="button" id="ed-cancel">취소</button><button type="submit" class="primary">저장</button>
+    </div>
+  </form>
+</div>
+<div id="toast" class="hidden"></div>
+
 <script>
 "use strict";
-const CFG = {"owner": "Forlab-future", "repo": "LibirdTodo", "branch": "snapshot", "file": "snapshot.json"};
+const CFG = {"owner": "Forlab-future", "repo": "LibirdTodo", "branch": "snapshot", "file": "snapshot.json", "inbox": "inbox", "inbox_dir": "inbox"};
 const WEEKDAYS = ["월", "화", "수", "목", "금", "토", "일"];  // 파이썬 weekday() 순서
-const KEY_STORE = "libird.key." + CFG.owner + "/" + CFG.repo;
+const REPO = CFG.owner + "/" + CFG.repo;
+const KEY_STORE = "libird.key." + REPO;
+const PAIR_STORE = "libird.pair." + REPO;       // QR로 받은 토큰 (보기 비밀번호 키로 암호화된 채)
+const PENDING_STORE = "libird.pending." + REPO; // PC가 아직 반영하지 않은 작업
+const SHA_STORE = "libird.outbox." + REPO;      // 저장소에 올린 내 파일의 sha
+const PUSHED_STORE = "libird.pushed." + REPO;   // 마지막으로 올린 작업 id 목록
+const PAIR_AAD = new TextEncoder().encode("libird-pair");
 const $ = (s) => document.querySelector(s);
-let payload = null, snap = null, memKey = null, view = null, sel = null, lastFetch = 0;
+let payload = null, snap = null, data = null, memKey = null, view = null, sel = null, lastFetch = 0;
+let token = null, pending = [], pendingIds = new Set(), editing = null, edStar = false;
+let pushing = false, pushAgain = false, pushError = "", pollTimer = null, pollCount = 0;
 
 const pad = (n) => String(n).padStart(2, "0");
 const iso = (d) => `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
 const pyWd = (d) => (d.getDay() + 6) % 7;  // JS 일=0 → 파이썬 월=0
 const fromIso = (s) => { const [y, m, d] = s.split("-").map(Number); return new Date(y, m - 1, d); };
 const esc = (s) => String(s).replace(/[&<>"']/g, (c) => ({"&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;"}[c]));
-const b64 = (s) => Uint8Array.from(atob(s), (c) => c.charCodeAt(0));
-const toB64 = (u8) => btoa(String.fromCharCode(...u8));
+const b64 = (s) => Uint8Array.from(atob(s.replace(/-/g, "+").replace(/_/g, "/")), (c) => c.charCodeAt(0));
+function toB64(u8) {
+  let s = "";
+  for (let i = 0; i < u8.length; i += 0x8000) s += String.fromCharCode(...u8.subarray(i, i + 0x8000));
+  return btoa(s);
+}
+const newId = () => Array.from(crypto.getRandomValues(new Uint8Array(16)), (b) => b.toString(16).padStart(2, "0")).join("");
+
+function lsGet(k) { try { return localStorage.getItem(k); } catch (e) { return null; } }
+function lsSet(k, v) {
+  try { if (v == null) localStorage.removeItem(k); else localStorage.setItem(k, v); }
+  catch (e) { /* 저장소를 못 쓰는 환경 */ }
+}
+
+// QR로 열렸으면 토큰(암호문)을 보관하고 주소창·방문 기록에서 지운다
+let justPaired = false;
+let pairCode = lsGet(PAIR_STORE);
+const pairHash = location.hash.match(/^#pair=(1\.[A-Za-z0-9_-]+)$/);
+if (pairHash) {
+  pairCode = pairHash[1];
+  lsSet(PAIR_STORE, pairCode);
+  justPaired = true;
+  history.replaceState(null, "", location.pathname + location.search);
+}
+let device = lsGet("libird.device");
+if (!device) { device = newId().slice(0, 16); lsSet("libird.device", device); }
 
 function show(id) {
   for (const el of ["#msg", "#lock", "#main"]) $(el).classList.toggle("hidden", el !== id);
 }
 function message(text) { $("#msg").textContent = text; show("#msg"); }
+let toastTimer = null;
+function toast(text) {
+  const t = $("#toast");
+  t.textContent = text;
+  t.classList.remove("hidden");
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => t.classList.add("hidden"), 4500);
+}
 
 // ------------------------------------------------------------ 데이터
+function gh(method, path, body, accept) {
+  const headers = {Accept: accept || "application/vnd.github+json"};
+  if (token) headers.Authorization = `Bearer ${token}`;
+  if (body) headers["Content-Type"] = "application/json";
+  return fetch(`https://api.github.com/repos/${CFG.owner}/${CFG.repo}${path}`,
+    {method, headers, cache: "no-store", body: body ? JSON.stringify(body) : undefined});
+}
+
 async function fetchPayload() {
-  const api = `https://api.github.com/repos/${CFG.owner}/${CFG.repo}/contents/${CFG.file}?ref=${CFG.branch}`;
   try {
-    const r = await fetch(api, {headers: {Accept: "application/vnd.github.raw"}, cache: "no-store"});
+    const r = await gh("GET", `/contents/${CFG.file}?ref=${CFG.branch}`, null, "application/vnd.github.raw");
     if (r.ok) return await r.json();
   } catch (e) { /* 요청 한도 등: raw로 다시 시도 */ }
   const raw = `https://raw.githubusercontent.com/${CFG.owner}/${CFG.repo}/${CFG.branch}/${CFG.file}?t=${Date.now()}`;
@@ -176,26 +277,36 @@ async function decrypt(raw, p) {
   return JSON.parse(new TextDecoder().decode(pt));
 }
 
+async function encryptJson(obj) {
+  const key = await crypto.subtle.importKey("raw", memKey.key, "AES-GCM", false, ["encrypt"]);
+  const iv = crypto.getRandomValues(new Uint8Array(12));
+  const ct = new Uint8Array(await crypto.subtle.encrypt(
+    {name: "AES-GCM", iv}, key, new TextEncoder().encode(JSON.stringify(obj))));
+  return JSON.stringify({v: 1, kdf: "PBKDF2-SHA256", iter: memKey.iter, salt: memKey.salt, iv: toB64(iv), ct: toB64(ct)});
+}
+
 function storedKey(p) {
   if (memKey && memKey.salt === p.salt && memKey.iter === p.iter) return memKey.key;
   try {
-    const c = JSON.parse(localStorage.getItem(KEY_STORE) || "null");
+    const c = JSON.parse(lsGet(KEY_STORE) || "null");
     if (c && c.salt === p.salt && c.iter === p.iter) return b64(c.key);
-  } catch (e) { /* 저장소를 못 쓰는 환경 */ }
+  } catch (e) { /* 깨진 값 */ }
   return null;
 }
 function forgetKey() {
   memKey = null;
-  try { localStorage.removeItem(KEY_STORE); } catch (e) { /* 무시 */ }
+  token = null;
+  lsSet(KEY_STORE, null);
 }
 
 async function load() {
+  clearTimeout(pollTimer);
   if (!snap) message("불러오는 중…");
   try {
     payload = await fetchPayload();
     lastFetch = Date.now();
   } catch (e) {
-    if (snap) { $("#updated").textContent = e.message; return; }
+    if (snap) { $("#updated").textContent = e.message; schedulePoll(); return; }
     message(e.message);
     return;
   }
@@ -208,7 +319,8 @@ async function load() {
     showLock("PC에서 보기 비밀번호가 바뀌었어요. 다시 입력해 주세요.");
     return;
   }
-  openMain();
+  memKey = {salt: payload.salt, iter: payload.iter, key};
+  await opened();
 }
 
 function showLock(error) {
@@ -228,15 +340,181 @@ $("#lock").addEventListener("submit", async (ev) => {
     const raw = await deriveKey(pw, payload);
     snap = await decrypt(raw, payload);
     memKey = {salt: payload.salt, iter: payload.iter, key: raw};
-    if ($("#remember").checked) {
-      try { localStorage.setItem(KEY_STORE, JSON.stringify({salt: payload.salt, iter: payload.iter, key: toB64(raw)})); }
-      catch (e) { /* 기억은 못 해도 지금은 연다 */ }
-    }
-    openMain();
+    if ($("#remember").checked) lsSet(KEY_STORE, JSON.stringify({salt: payload.salt, iter: payload.iter, key: toB64(raw)}));
   } catch (e) {
     $("#lock-error").textContent = "비밀번호가 맞지 않아요.";
+    return;
   }
+  await opened();
 });
+
+// 데이터를 푼 뒤: 폰 연결 확인 → PC가 반영한 작업 정리 → 화면 → 남은 작업 올리기
+async function opened() {
+  if (!token) await unlockToken();
+  confirmApplied();
+  openMain();
+  if (canEdit() && needsPush()) pushOutbox();
+  else schedulePoll();
+}
+
+async function unlockToken() {
+  if (!pairCode || !memKey) return;
+  try {
+    const raw = b64(pairCode.slice(2));
+    const key = await crypto.subtle.importKey("raw", memKey.key, "AES-GCM", false, ["decrypt"]);
+    const pt = await crypto.subtle.decrypt({name: "AES-GCM", iv: raw.slice(0, 12), additionalData: PAIR_AAD}, key, raw.slice(12));
+    token = new TextDecoder().decode(pt);
+    if (justPaired) toast("수정 기능을 연결했어요. 할 일을 눌러 고칠 수 있어요.");
+  } catch (e) {
+    toast(justPaired ? "QR이 맞지 않아요. PC에서 QR을 다시 띄워 찍어 주세요."
+      : "PC 보기 비밀번호가 바뀌어 수정 연결이 풀렸어요. PC 설정에서 QR로 다시 연결해 주세요.");
+    pairCode = null;
+    lsSet(PAIR_STORE, null);
+  }
+  justPaired = false;
+}
+
+// ------------------------------------------------------------ 폰에서 고치기
+const canEdit = () => Boolean(token && memKey && snap && snap.edit !== false);
+
+function loadPending() {
+  try { const p = JSON.parse(lsGet(PENDING_STORE) || "[]"); return Array.isArray(p) ? p : []; }
+  catch (e) { return []; }
+}
+function savePending() { lsSet(PENDING_STORE, pending.length ? JSON.stringify(pending) : null); }
+const needsPush = () => JSON.stringify(pending.map((op) => op.id)) !== (lsGet(PUSHED_STORE) || "[]");
+
+function confirmApplied() {
+  pending = loadPending();
+  const applied = new Set(snap.applied || []);
+  const left = pending.filter((op) => !applied.has(op.id));
+  if (left.length !== pending.length) { pending = left; savePending(); }
+}
+
+function addOps(list) {
+  if (!list.length || !canEdit()) return;
+  pending = loadPending();
+  const now = Date.now();
+  list.forEach(([k, fields], i) => pending.push({id: newId(), ts: new Date(now + i).toISOString(), k, ...fields}));
+  savePending();
+  pollCount = 0;
+  render();
+  pushOutbox();
+}
+
+// 아직 반영되지 않은 내 작업 전체를 inbox/<기기>.json 하나로 올린다 (이 파일은 이 폰만 쓴다)
+async function pushOutbox() {
+  if (!canEdit()) return;
+  if (pushing) { pushAgain = true; return; }
+  pushing = true;
+  pushError = "";
+  showStatus();
+  pending = loadPending();
+  const ids = JSON.stringify(pending.map((op) => op.id));
+  const path = `/contents/${CFG.inbox_dir}/${device}.json`;
+  try {
+    const content = btoa(await encryptJson({v: 1, device, ops: pending}));
+    let sha = lsGet(SHA_STORE) || undefined, ok = false;
+    for (let i = 0; i < 3 && !ok && !pushError; i++) {
+      const r = await gh("PUT", path, {message: "LiBird Todo 폰 수정", branch: CFG.inbox, content, ...(sha ? {sha} : {})});
+      if (r.ok) {
+        lsSet(SHA_STORE, (await r.json()).content.sha);
+        lsSet(PUSHED_STORE, ids);
+        ok = true;
+      } else if (r.status === 409 || r.status === 422) {  // 기억한 sha가 다르다: 지금 것을 받아 다시
+        const g = await gh("GET", `${path}?ref=${CFG.inbox}`);
+        sha = g.ok ? (await g.json()).sha : undefined;
+      } else {
+        pushError = r.status === 401 || r.status === 403 ? "auth" : "http";
+      }
+    }
+    if (!ok && !pushError) pushError = "http";
+  } catch (e) {
+    pushError = "network";
+  }
+  pushing = false;
+  if (pushAgain) { pushAgain = false; pushOutbox(); return; }
+  showStatus();
+  schedulePoll();
+}
+
+// 고친 내용이 PC에 반영됐는지 보려고, 화면을 보고 있는 동안 가끔 다시 받는다
+function schedulePoll() {
+  clearTimeout(pollTimer);
+  if (!pending.length || document.visibilityState !== "visible") return;
+  pollTimer = setTimeout(load, pollCount++ < 10 ? 30000 : 120000);
+}
+
+function showStatus() {
+  const el = $("#status");
+  let html = "", err = false;
+  const n = pending.length;
+  if (snap && snap.edit === false) {
+    html = n ? `PC에서 폰 수정이 꺼져 있어요. 고친 ${n}건은 반영되지 않아요.` : "";
+  } else if (!token) {
+    html = "할 일을 고치려면 PC 설정 → 모바일 → 「폰 연결 QR」을 폰 카메라로 찍으세요.";
+  } else if (pushing) {
+    html = "보내는 중…";
+  } else if (pushError) {
+    err = true;
+    html = pushError === "auth"
+      ? "GitHub 토큰이 만료됐거나 권한이 없어요. PC에서 새 토큰을 넣고 QR로 다시 연결해 주세요."
+      : (pushError === "network" ? "보내지 못했어요. 인터넷 연결을 확인해 주세요." : "보내지 못했어요.")
+        + ` <button type="button" id="retry">다시 보내기</button>`;
+  } else if (n) {
+    html = `고친 내용 ${n}건 · PC 반영 대기 (PC 앱이 켜져 있으면 1~2분 안에 반영돼요)`;
+  }
+  el.innerHTML = html;
+  el.classList.toggle("hidden", !html);
+  el.classList.toggle("err", err);
+  const retry = $("#retry");
+  if (retry) retry.onclick = () => pushOutbox();
+}
+
+// 받은 데이터 위에 아직 반영되지 않은 작업을 얹어서 보여 준다 (PC의 반영 규칙과 같게)
+function derive() {
+  const days = {};
+  for (const [k, list] of Object.entries(snap.days)) days[k] = list.map((e) => ({...e}));
+  const d = {days, overdue: snap.overdue.map((e) => ({...e}))};
+  pendingIds = new Set();
+  if (snap.edit !== false) {
+    for (const op of pending) { applyLocal(d, op); pendingIds.add(op.item); }
+  }
+  d.overdue = d.overdue.filter((e) => !e.done);
+  data = d;
+}
+
+function applyLocal(d, op) {
+  const hits = [];
+  for (const list of Object.values(d.days)) for (const e of list) if (e.id === op.item) hits.push({list, e});
+  const od = d.overdue.find((e) => e.id === op.item);
+  const all = hits.map((h) => h.e).concat(od ? [od] : []);
+  const dropDays = () => { for (const h of hits) h.list.splice(h.list.indexOf(h.e), 1); };
+  const dropOverdue = () => { if (od) d.overdue.splice(d.overdue.indexOf(od), 1); };
+  if (op.k === "add") {
+    if (!all.length) (d.days[op.date] ||= []).push({id: op.item, t: op.text, s: op.section, done: false, star: false, r: false});
+  } else if (op.k === "done") {
+    for (const e of all) e.done = op.done;
+  } else if (op.k === "star") {
+    for (const e of all) e.star = op.star;
+  } else if (op.k === "text") {
+    for (const e of all) e.t = op.text;
+  } else if (op.k === "delete") {
+    dropDays();
+    dropOverdue();
+  } else if (op.k === "move" && all.length) {
+    const moved = {...all[0], s: op.section || all[0].s};
+    delete moved.date;
+    dropDays();
+    (d.days[op.date] ||= []).push(moved);
+    if (od && op.date < iso(new Date())) { od.date = op.date; od.s = moved.s; } else dropOverdue();
+  }
+}
+
+function findEntry(id) {
+  for (const list of Object.values(data.days)) for (const e of list) if (e.id === id) return e;
+  return data.overdue.find((e) => e.id === id) || null;
+}
 
 // ------------------------------------------------------------ 화면
 function openMain() {
@@ -256,6 +534,7 @@ function step(delta) {
 }
 
 function render() {
+  derive();
   const todayIso = iso(new Date());
   const ws = snap.week_start;  // 파이썬 weekday: 0=월 … 6=일
   $("#title").textContent = `${view.y}년 ${view.m + 1}월`;
@@ -279,7 +558,7 @@ function render() {
     const numCls = wd === 6 || hol ? "red" : wd === 5 ? "blue" : "";
     const cls = ["cell", d.getMonth() !== view.m && "out", key === todayIso && "today", key === sel && "sel"]
       .filter(Boolean).join(" ");
-    const entries = snap.days[key] || [];
+    const entries = data.days[key] || [];
     const marks = entries.slice(0, 6).map((e) => e.star && !e.done
       ? `<span class="st">★</span>`
       : `<span class="dot${e.done ? " done" : ""}" style="background:${(sections[e.s] || {}).color || "var(--muted)"}"></span>`
@@ -297,6 +576,7 @@ function render() {
   $("#range-note").textContent = out ? `PC가 보내는 기간(${lo} ~ ${hi}) 밖이에요.` : "";
 
   renderDay(sections, todayIso);
+  showStatus();
   const gen = new Date(snap.generated_at);
   const hours = (Date.now() - gen.getTime()) / 36e5;
   $("#updated").textContent = `PC에서 ${gen.getMonth() + 1}/${gen.getDate()} ${pad(gen.getHours())}:${pad(gen.getMinutes())}에 업데이트`
@@ -304,14 +584,19 @@ function render() {
   $("#updated").classList.toggle("stale", hours > 24);
 }
 
-function itemRow(e, extra) {
-  const star = e.star ? `<span class="star">★</span> ` : "";
+function itemRow(e, date, ed, extra) {
+  const star = !ed && e.star ? `<span class="star">★</span> ` : "";
   const recur = e.r ? ` <span class="sm">↻</span>` : "";
-  return `<li class="${e.done ? "done" : ""}"><span class="ck">${e.done ? "✓" : ""}</span>`
-    + `<span class="tx">${star}${esc(e.t)}${recur}</span>${extra || ""}</li>`;
+  const cls = [e.done && "done", pendingIds.has(e.id) && "pending"].filter(Boolean).join(" ");
+  return `<li class="${cls}" data-id="${esc(e.id)}" data-date="${date}">`
+    + `<span class="ck" role="checkbox" aria-checked="${Boolean(e.done)}">${e.done ? "✓" : ""}</span>`
+    + `<span class="tx">${star}${esc(e.t)}${recur}</span>${extra || ""}`
+    + (ed ? `<button type="button" class="stb${e.star ? " on" : ""}" aria-label="중요 표시">${e.star ? "★" : "☆"}</button>` : "")
+    + `</li>`;
 }
 
 function renderDay(sections, todayIso) {
+  const ed = canEdit();
   const d = fromIso(sel);
   const hol = snap.holidays[sel];
   const diff = Math.round((d - fromIso(todayIso)) / 864e5);
@@ -319,31 +604,83 @@ function renderDay(sections, todayIso) {
   let html = `<h2>${d.getMonth() + 1}월 ${d.getDate()}일 (${WEEKDAYS[pyWd(d)]})`
     + (hol ? ` <span class="hol">${esc(hol)}</span>` : "") + `<span class="rel">${rel}</span></h2>`;
 
-  if (sel === todayIso && snap.overdue.length) {
-    html += `<div class="box overdue"><div class="head">밀린 일 ${snap.overdue.length}개</div><ul>`
-      + snap.overdue.map((e) => {
+  if (sel === todayIso && data.overdue.length) {
+    html += `<div class="box overdue"><div class="head">밀린 일 ${data.overdue.length}개</div><ul>`
+      + data.overdue.map((e) => {
         const od = fromIso(e.date);
         const sec = sections[e.s];
-        return itemRow(e, `<span class="sm">${od.getMonth() + 1}/${od.getDate()}`
+        return itemRow(e, e.date, ed, `<span class="sm">${od.getMonth() + 1}/${od.getDate()}`
           + (sec ? ` · <span style="color:${sec.color}">●</span> ${esc(sec.name)}` : "") + `</span>`);
       }).join("") + `</ul></div>`;
   }
 
-  const entries = snap.days[sel] || [];
-  if (!entries.length) {
+  const entries = data.days[sel] || [];
+  if (!entries.length && !ed) {
     html += `<div class="box empty muted">할 일 없음</div>`;
   } else {
     for (const sec of snap.sections) {
       const list = entries.filter((e) => e.s === sec.id);
-      if (!list.length) continue;
+      if (!list.length && !ed) continue;
       const done = list.filter((e) => e.done).length;
       html += `<div class="box"><div class="head"><span class="bar" style="background:${sec.color}"></span>`
-        + `${esc(sec.name)}<span class="cnt">${done}/${list.length}</span></div><ul>`
-        + list.map((e) => itemRow(e)).join("") + `</ul></div>`;
+        + `${esc(sec.name)}<span class="cnt">${list.length ? `${done}/${list.length}` : ""}</span></div>`
+        + `<ul>${list.map((e) => itemRow(e, sel, ed)).join("")}</ul>`
+        + (ed ? `<form class="add" data-s="${esc(sec.id)}"><input maxlength="500" enterkeyhint="done"`
+          + ` placeholder="+ 할 일 추가" aria-label="${esc(sec.name)}에 할 일 추가"></form>` : "")
+        + `</div>`;
     }
   }
   $("#day").innerHTML = html;
+  $("#day").classList.toggle("edit", ed);
 }
+
+// ------------------------------------------------------------ 수정 창
+function setStar(on) {
+  edStar = on;
+  $("#ed-star").textContent = on ? "★ 중요" : "☆ 중요 표시";
+  $("#ed-star").classList.toggle("on", on);
+}
+
+function openSheet(e, date) {
+  editing = {e, date};
+  $("#ed-text").value = e.t;
+  $("#ed-date").value = date;
+  $("#ed-sec").innerHTML = snap.sections.map((s) =>
+    `<option value="${esc(s.id)}"${s.id === e.s ? " selected" : ""}>${esc(s.name)}</option>`).join("");
+  setStar(Boolean(e.star));
+  $("#ed-note").textContent = e.r ? "반복 항목이에요. 이 날짜 것만 바뀌어요." : "";
+  $("#sheet").classList.remove("hidden");
+}
+function closeSheet() { editing = null; $("#sheet").classList.add("hidden"); }
+
+$("#ed-form").addEventListener("submit", (ev) => {
+  ev.preventDefault();
+  if (!editing) return;
+  const {e, date} = editing;
+  const text = $("#ed-text").value.trim(), nd = $("#ed-date").value || date, ns = $("#ed-sec").value;
+  const ops = [];
+  if (text && text !== e.t) ops.push(["text", {item: e.id, text}]);
+  if (edStar !== Boolean(e.star)) ops.push(["star", {item: e.id, star: edStar}]);
+  if (nd !== date || ns !== e.s) ops.push(["move", {item: e.id, date: nd, section: ns}]);
+  closeSheet();
+  addOps(ops);
+});
+$("#ed-star").onclick = () => setStar(!edStar);
+$("#ed-cancel").onclick = closeSheet;
+$("#sheet").addEventListener("click", (ev) => { if (ev.target.id === "sheet") closeSheet(); });
+for (const b of document.querySelectorAll("#sheet [data-q]")) {
+  b.onclick = () => {
+    const t = new Date();
+    $("#ed-date").value = iso(new Date(t.getFullYear(), t.getMonth(), t.getDate() + Number(b.dataset.q)));
+  };
+}
+$("#ed-del").onclick = () => {
+  if (!editing) return;
+  const {e} = editing;
+  if (!confirm(`「${e.t}」을(를) 삭제할까요?` + (e.r ? "\n반복 항목은 이 날짜 것만 지워져요." : ""))) return;
+  closeSheet();
+  addOps([["delete", {item: e.id}]]);
+};
 
 // ------------------------------------------------------------ 조작
 $("#grid").addEventListener("click", (ev) => {
@@ -353,6 +690,25 @@ $("#grid").addEventListener("click", (ev) => {
   const d = fromIso(sel);
   if (d.getMonth() !== view.m) view = {y: d.getFullYear(), m: d.getMonth()};
   render();
+});
+$("#day").addEventListener("click", (ev) => {
+  const li = ev.target.closest("li[data-id]");
+  if (!li || !canEdit()) return;
+  const e = findEntry(li.dataset.id);
+  if (!e) return;
+  if (ev.target.closest(".ck")) addOps([["done", {item: e.id, done: !e.done}]]);
+  else if (ev.target.closest(".stb")) addOps([["star", {item: e.id, star: !e.star}]]);
+  else openSheet(e, li.dataset.date);
+});
+$("#day").addEventListener("submit", (ev) => {
+  ev.preventDefault();
+  const form = ev.target.closest("form.add");
+  const text = form ? form.querySelector("input").value.trim() : "";
+  if (!text) return;
+  const sid = form.dataset.s;
+  addOps([["add", {item: newId(), date: sel, section: sid, text}]]);
+  const again = document.querySelector(`#day form.add[data-s="${CSS.escape(sid)}"] input`);
+  if (again) again.focus();  // 이어서 입력할 수 있게
 });
 $("#prev").onclick = () => step(-1);
 $("#next").onclick = () => step(1);
@@ -370,8 +726,11 @@ $("#cal").addEventListener("touchend", (e) => {
 }, {passive: true});
 
 document.addEventListener("visibilitychange", () => {
-  if (document.visibilityState === "visible" && Date.now() - lastFetch > 60000) load();
+  if (document.visibilityState !== "visible") { clearTimeout(pollTimer); return; }
+  if (Date.now() - lastFetch > 60000) load();
+  else schedulePoll();
 });
+window.addEventListener("online", () => { if (canEdit() && needsPush()) pushOutbox(); });
 
 load();
 </script>
