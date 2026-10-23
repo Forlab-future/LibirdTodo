@@ -1,0 +1,379 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="robots" content="noindex">
+<meta name="theme-color" content="#4C8BF5">
+<title>LiBird Todo</title>
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="icon-192.png">
+<link rel="apple-touch-icon" href="icon-192.png">
+<style>
+:root {
+  --bg: #F4F5F7; --card: #FFFFFF; --border: #E2E4E8; --text: #202327; --muted: #8A9099;
+  --accent: #4C8BF5; --red: #E5484D; --blue: #2F6FED; --star: #F2A900;
+  --out: #F9FAFB; --today: #EAF2FF; --sel: #DCE8FD; --overdue-bg: #FFF7F7; --overdue: #B4232A;
+}
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #1C1D20; --card: #2A2C30; --border: #3B3E44; --text: #E4E6E9; --muted: #959BA4;
+    --accent: #4C8BF5; --red: #F26B70; --blue: #6E9DFF; --star: #F5C542;
+    --out: #232528; --today: #22324F; --sel: #2E3D5C; --overdue-bg: #352325; --overdue: #FF8C91;
+  }
+}
+* { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+html, body { margin: 0; background: var(--bg); color: var(--text);
+  font-family: "Malgun Gothic", "Apple SD Gothic Neo", "Noto Sans KR", system-ui, sans-serif; }
+body { padding: env(safe-area-inset-top) 0 env(safe-area-inset-bottom); }
+button { font: inherit; color: inherit; background: var(--card); border: 1px solid var(--border);
+  border-radius: 8px; padding: 6px 10px; cursor: pointer; }
+button:active { background: var(--sel); }
+.hidden { display: none !important; }
+.muted { color: var(--muted); }
+
+/* 잠금 화면 */
+#lock { max-width: 360px; margin: 18vh auto 0; padding: 0 20px; text-align: center; }
+#lock h1 { font-size: 22px; margin: 0 0 6px; }
+#lock p { margin: 0 0 18px; font-size: 14px; }
+#lock input[type=password] { width: 100%; font-size: 16px; padding: 12px; border-radius: 10px;
+  border: 1px solid var(--border); background: var(--card); color: var(--text); }
+#lock label { display: flex; gap: 6px; align-items: center; justify-content: center;
+  margin: 12px 0; font-size: 14px; }
+#lock .go { width: 100%; padding: 12px; background: var(--accent); color: #fff; border: none;
+  font-size: 16px; border-radius: 10px; }
+#lock-error { color: var(--red); min-height: 1.4em; font-size: 14px; margin-top: 10px; }
+
+/* 상단 */
+header { position: sticky; top: 0; z-index: 2; display: flex; align-items: center; gap: 6px;
+  padding: 10px 12px; background: var(--card); border-bottom: 1px solid var(--border); }
+header h1 { flex: 1; margin: 0; font-size: 18px; text-align: center; }
+header button { padding: 5px 9px; }
+
+/* 달력 */
+#cal { padding: 8px 8px 4px; touch-action: pan-y; }
+.wd, .grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 3px; }
+.wd div { text-align: center; font-size: 12px; font-weight: bold; color: var(--muted); padding: 2px 0 4px; }
+.wd .sun { color: var(--red); } .wd .sat { color: var(--blue); }
+.cell { background: var(--card); border: 1px solid var(--border); border-radius: 7px; min-height: 58px;
+  padding: 3px 3px 2px; overflow: hidden; cursor: pointer; position: relative; }
+.cell.out { background: var(--out); opacity: .55; }
+.cell.today { background: var(--today); border-color: var(--accent); }
+.cell.sel { outline: 2px solid var(--accent); outline-offset: -1px; }
+.cell .num { font-size: 13px; font-weight: bold; line-height: 1.2; }
+.cell .num.red { color: var(--red); } .cell .num.blue { color: var(--blue); }
+.cell .hol { font-size: 9px; color: var(--red); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.cell .marks { display: flex; flex-wrap: wrap; gap: 2px; margin-top: 3px; align-items: center; }
+.cell .dot { width: 6px; height: 6px; border-radius: 50%; }
+.cell .dot.done { opacity: .3; }
+.cell .st { font-size: 9px; line-height: 6px; color: var(--star); }
+.cell .more { font-size: 9px; color: var(--muted); line-height: 6px; }
+#range-note { font-size: 12px; text-align: center; padding: 4px; }
+
+/* 선택한 날 */
+#day { padding: 4px 12px 16px; }
+#day h2 { font-size: 17px; margin: 10px 2px 8px; display: flex; gap: 8px; align-items: baseline; flex-wrap: wrap; }
+#day h2 .hol { color: var(--red); font-size: 14px; }
+#day h2 .rel { margin-left: auto; font-size: 13px; color: var(--muted); font-weight: normal; }
+.box { background: var(--card); border: 1px solid var(--border); border-radius: 10px; padding: 8px 12px; margin-bottom: 8px; }
+.box.overdue { background: var(--overdue-bg); border-color: transparent; }
+.box .head { display: flex; align-items: center; gap: 8px; font-weight: bold; margin-bottom: 4px; }
+.box .bar { width: 4px; height: 16px; border-radius: 2px; }
+.box .cnt { margin-left: auto; font-weight: normal; font-size: 13px; color: var(--muted); }
+.overdue .head { color: var(--overdue); }
+ul { list-style: none; margin: 0; padding: 0; }
+li { display: flex; gap: 8px; align-items: flex-start; padding: 5px 0; font-size: 15px; line-height: 1.35; }
+li + li { border-top: 1px solid var(--border); }
+.overdue li + li { border-top-color: transparent; }
+li .ck { flex: none; width: 18px; height: 18px; margin-top: 1px; border: 1.5px solid var(--muted); border-radius: 4px;
+  display: grid; place-items: center; font-size: 12px; color: #fff; }
+li.done .ck { background: var(--accent); border-color: var(--accent); }
+li .tx { flex: 1; word-break: break-word; }
+li.done .tx { text-decoration: line-through; color: var(--muted); }
+li .sm { color: var(--muted); font-size: 12px; white-space: nowrap; }
+.star { color: var(--star); }
+.empty { text-align: center; padding: 18px 0; }
+footer { text-align: center; font-size: 12px; padding: 4px 12px 24px; }
+footer.stale { color: var(--overdue); }
+#msg { text-align: center; padding: 40px 20px; }
+</style>
+</head>
+<body>
+<div id="msg" class="muted">불러오는 중…</div>
+
+<form id="lock" class="hidden" autocomplete="off">
+  <h1>LiBird Todo</h1>
+  <p class="muted">PC 앱 설정의 보기 비밀번호를 입력하세요.</p>
+  <input id="pw" type="password" placeholder="보기 비밀번호" autocomplete="current-password">
+  <label><input id="remember" type="checkbox" checked> 이 기기에서 기억하기</label>
+  <button class="go" type="submit">열기</button>
+  <div id="lock-error"></div>
+</form>
+
+<div id="main" class="hidden">
+  <header>
+    <button id="prev" aria-label="이전 달">‹</button>
+    <h1 id="title"></h1>
+    <button id="next" aria-label="다음 달">›</button>
+    <button id="today-btn">오늘</button>
+    <button id="reload" aria-label="새로고침">⟳</button>
+    <button id="lock-btn" aria-label="잠그기">🔒</button>
+  </header>
+  <section id="cal">
+    <div class="wd" id="wd"></div>
+    <div class="grid" id="grid"></div>
+    <div id="range-note" class="muted hidden"></div>
+  </section>
+  <section id="day"></section>
+  <footer id="updated" class="muted"></footer>
+</div>
+
+<script>
+"use strict";
+const CFG = {"owner": "Forlab-future", "repo": "LibirdTodo", "branch": "snapshot", "file": "snapshot.json"};
+const WEEKDAYS = ["월", "화", "수", "목", "금", "토", "일"];  // 파이썬 weekday() 순서
+const KEY_STORE = "libird.key." + CFG.owner + "/" + CFG.repo;
+const $ = (s) => document.querySelector(s);
+let payload = null, snap = null, memKey = null, view = null, sel = null, lastFetch = 0;
+
+const pad = (n) => String(n).padStart(2, "0");
+const iso = (d) => `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+const pyWd = (d) => (d.getDay() + 6) % 7;  // JS 일=0 → 파이썬 월=0
+const fromIso = (s) => { const [y, m, d] = s.split("-").map(Number); return new Date(y, m - 1, d); };
+const esc = (s) => String(s).replace(/[&<>"']/g, (c) => ({"&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;"}[c]));
+const b64 = (s) => Uint8Array.from(atob(s), (c) => c.charCodeAt(0));
+const toB64 = (u8) => btoa(String.fromCharCode(...u8));
+
+function show(id) {
+  for (const el of ["#msg", "#lock", "#main"]) $(el).classList.toggle("hidden", el !== id);
+}
+function message(text) { $("#msg").textContent = text; show("#msg"); }
+
+// ------------------------------------------------------------ 데이터
+async function fetchPayload() {
+  const api = `https://api.github.com/repos/${CFG.owner}/${CFG.repo}/contents/${CFG.file}?ref=${CFG.branch}`;
+  try {
+    const r = await fetch(api, {headers: {Accept: "application/vnd.github.raw"}, cache: "no-store"});
+    if (r.ok) return await r.json();
+  } catch (e) { /* 요청 한도 등: raw로 다시 시도 */ }
+  const raw = `https://raw.githubusercontent.com/${CFG.owner}/${CFG.repo}/${CFG.branch}/${CFG.file}?t=${Date.now()}`;
+  const r = await fetch(raw, {cache: "no-store"});
+  if (r.status === 404) throw new Error("아직 PC에서 올린 데이터가 없어요. PC 앱 설정의 모바일 탭에서 「지금 올리기」를 눌러 주세요.");
+  if (!r.ok) throw new Error(`데이터를 가져오지 못했어요 (${r.status}).`);
+  return await r.json();
+}
+
+async function deriveKey(pw, p) {
+  const base = await crypto.subtle.importKey("raw", new TextEncoder().encode(pw), "PBKDF2", false, ["deriveBits"]);
+  const bits = await crypto.subtle.deriveBits(
+    {name: "PBKDF2", hash: "SHA-256", salt: b64(p.salt), iterations: p.iter}, base, 256);
+  return new Uint8Array(bits);
+}
+
+async function decrypt(raw, p) {
+  const key = await crypto.subtle.importKey("raw", raw, "AES-GCM", false, ["decrypt"]);
+  const pt = await crypto.subtle.decrypt({name: "AES-GCM", iv: b64(p.iv)}, key, b64(p.ct));
+  return JSON.parse(new TextDecoder().decode(pt));
+}
+
+function storedKey(p) {
+  if (memKey && memKey.salt === p.salt && memKey.iter === p.iter) return memKey.key;
+  try {
+    const c = JSON.parse(localStorage.getItem(KEY_STORE) || "null");
+    if (c && c.salt === p.salt && c.iter === p.iter) return b64(c.key);
+  } catch (e) { /* 저장소를 못 쓰는 환경 */ }
+  return null;
+}
+function forgetKey() {
+  memKey = null;
+  try { localStorage.removeItem(KEY_STORE); } catch (e) { /* 무시 */ }
+}
+
+async function load() {
+  if (!snap) message("불러오는 중…");
+  try {
+    payload = await fetchPayload();
+    lastFetch = Date.now();
+  } catch (e) {
+    if (snap) { $("#updated").textContent = e.message; return; }
+    message(e.message);
+    return;
+  }
+  const key = storedKey(payload);
+  if (!key) { showLock(""); return; }
+  try {
+    snap = await decrypt(key, payload);
+  } catch (e) {
+    forgetKey();
+    showLock("PC에서 보기 비밀번호가 바뀌었어요. 다시 입력해 주세요.");
+    return;
+  }
+  openMain();
+}
+
+function showLock(error) {
+  snap = null;
+  $("#lock-error").textContent = error;
+  $("#pw").value = "";
+  show("#lock");
+  $("#pw").focus();
+}
+
+$("#lock").addEventListener("submit", async (ev) => {
+  ev.preventDefault();
+  const pw = $("#pw").value;
+  if (!pw || !payload) return;
+  $("#lock-error").textContent = "확인 중…";
+  try {
+    const raw = await deriveKey(pw, payload);
+    snap = await decrypt(raw, payload);
+    memKey = {salt: payload.salt, iter: payload.iter, key: raw};
+    if ($("#remember").checked) {
+      try { localStorage.setItem(KEY_STORE, JSON.stringify({salt: payload.salt, iter: payload.iter, key: toB64(raw)})); }
+      catch (e) { /* 기억은 못 해도 지금은 연다 */ }
+    }
+    openMain();
+  } catch (e) {
+    $("#lock-error").textContent = "비밀번호가 맞지 않아요.";
+  }
+});
+
+// ------------------------------------------------------------ 화면
+function openMain() {
+  if (!view) {
+    const t = new Date();
+    view = {y: t.getFullYear(), m: t.getMonth()};
+    sel = iso(t);
+  }
+  show("#main");
+  render();
+}
+
+function step(delta) {
+  const d = new Date(view.y, view.m + delta, 1);
+  view = {y: d.getFullYear(), m: d.getMonth()};
+  render();
+}
+
+function render() {
+  const todayIso = iso(new Date());
+  const ws = snap.week_start;  // 파이썬 weekday: 0=월 … 6=일
+  $("#title").textContent = `${view.y}년 ${view.m + 1}월`;
+  $("#wd").innerHTML = Array.from({length: 7}, (_, c) => {
+    const wd = (ws + c) % 7;
+    return `<div class="${wd === 6 ? "sun" : wd === 5 ? "sat" : ""}">${WEEKDAYS[wd]}</div>`;
+  }).join("");
+
+  const first = new Date(view.y, view.m, 1);
+  const offset = (pyWd(first) - ws + 7) % 7;
+  const start = new Date(view.y, view.m, 1 - offset);
+  const days = new Date(view.y, view.m + 1, 0).getDate();
+  const weeks = Math.ceil((offset + days) / 7);
+  const sections = Object.fromEntries(snap.sections.map((s) => [s.id, s]));
+  let html = "";
+  for (let i = 0; i < weeks * 7; i++) {
+    const d = new Date(start.getFullYear(), start.getMonth(), start.getDate() + i);
+    const key = iso(d);
+    const hol = snap.holidays[key];
+    const wd = pyWd(d);
+    const numCls = wd === 6 || hol ? "red" : wd === 5 ? "blue" : "";
+    const cls = ["cell", d.getMonth() !== view.m && "out", key === todayIso && "today", key === sel && "sel"]
+      .filter(Boolean).join(" ");
+    const entries = snap.days[key] || [];
+    const marks = entries.slice(0, 6).map((e) => e.star && !e.done
+      ? `<span class="st">★</span>`
+      : `<span class="dot${e.done ? " done" : ""}" style="background:${(sections[e.s] || {}).color || "var(--muted)"}"></span>`
+    ).join("") + (entries.length > 6 ? `<span class="more">+${entries.length - 6}</span>` : "");
+    html += `<div class="${cls}" data-d="${key}"><div class="num ${numCls}">${d.getDate()}</div>`
+      + (hol ? `<div class="hol">${esc(hol)}</div>` : "")
+      + `<div class="marks">${marks}</div></div>`;
+  }
+  $("#grid").innerHTML = html;
+
+  const [lo, hi] = snap.range;
+  const monthStart = iso(first), monthEnd = iso(new Date(view.y, view.m + 1, 0));
+  const out = monthEnd < lo || monthStart > hi;
+  $("#range-note").classList.toggle("hidden", !out);
+  $("#range-note").textContent = out ? `PC가 보내는 기간(${lo} ~ ${hi}) 밖이에요.` : "";
+
+  renderDay(sections, todayIso);
+  const gen = new Date(snap.generated_at);
+  const hours = (Date.now() - gen.getTime()) / 36e5;
+  $("#updated").textContent = `PC에서 ${gen.getMonth() + 1}/${gen.getDate()} ${pad(gen.getHours())}:${pad(gen.getMinutes())}에 업데이트`
+    + (hours > 24 ? " · PC가 꺼져 있었을 수 있어요" : "");
+  $("#updated").classList.toggle("stale", hours > 24);
+}
+
+function itemRow(e, extra) {
+  const star = e.star ? `<span class="star">★</span> ` : "";
+  const recur = e.r ? ` <span class="sm">↻</span>` : "";
+  return `<li class="${e.done ? "done" : ""}"><span class="ck">${e.done ? "✓" : ""}</span>`
+    + `<span class="tx">${star}${esc(e.t)}${recur}</span>${extra || ""}</li>`;
+}
+
+function renderDay(sections, todayIso) {
+  const d = fromIso(sel);
+  const hol = snap.holidays[sel];
+  const diff = Math.round((d - fromIso(todayIso)) / 864e5);
+  const rel = diff === 0 ? "오늘" : diff === 1 ? "내일" : diff === -1 ? "어제" : `${Math.abs(diff)}일 ${diff > 0 ? "후" : "전"}`;
+  let html = `<h2>${d.getMonth() + 1}월 ${d.getDate()}일 (${WEEKDAYS[pyWd(d)]})`
+    + (hol ? ` <span class="hol">${esc(hol)}</span>` : "") + `<span class="rel">${rel}</span></h2>`;
+
+  if (sel === todayIso && snap.overdue.length) {
+    html += `<div class="box overdue"><div class="head">밀린 일 ${snap.overdue.length}개</div><ul>`
+      + snap.overdue.map((e) => {
+        const od = fromIso(e.date);
+        const sec = sections[e.s];
+        return itemRow(e, `<span class="sm">${od.getMonth() + 1}/${od.getDate()}`
+          + (sec ? ` · <span style="color:${sec.color}">●</span> ${esc(sec.name)}` : "") + `</span>`);
+      }).join("") + `</ul></div>`;
+  }
+
+  const entries = snap.days[sel] || [];
+  if (!entries.length) {
+    html += `<div class="box empty muted">할 일 없음</div>`;
+  } else {
+    for (const sec of snap.sections) {
+      const list = entries.filter((e) => e.s === sec.id);
+      if (!list.length) continue;
+      const done = list.filter((e) => e.done).length;
+      html += `<div class="box"><div class="head"><span class="bar" style="background:${sec.color}"></span>`
+        + `${esc(sec.name)}<span class="cnt">${done}/${list.length}</span></div><ul>`
+        + list.map((e) => itemRow(e)).join("") + `</ul></div>`;
+    }
+  }
+  $("#day").innerHTML = html;
+}
+
+// ------------------------------------------------------------ 조작
+$("#grid").addEventListener("click", (ev) => {
+  const cell = ev.target.closest(".cell");
+  if (!cell) return;
+  sel = cell.dataset.d;
+  const d = fromIso(sel);
+  if (d.getMonth() !== view.m) view = {y: d.getFullYear(), m: d.getMonth()};
+  render();
+});
+$("#prev").onclick = () => step(-1);
+$("#next").onclick = () => step(1);
+$("#today-btn").onclick = () => { view = null; openMain(); };
+$("#reload").onclick = () => load();
+$("#lock-btn").onclick = () => { forgetKey(); view = null; showLock(""); };
+
+let touch = null;
+$("#cal").addEventListener("touchstart", (e) => { touch = e.touches[0]; }, {passive: true});
+$("#cal").addEventListener("touchend", (e) => {
+  if (!touch) return;
+  const t = e.changedTouches[0], dx = t.clientX - touch.clientX, dy = t.clientY - touch.clientY;
+  touch = null;
+  if (Math.abs(dx) > 50 && Math.abs(dx) > Math.abs(dy) * 1.5) step(dx < 0 ? 1 : -1);
+}, {passive: true});
+
+document.addEventListener("visibilitychange", () => {
+  if (document.visibilityState === "visible" && Date.now() - lastFetch > 60000) load();
+});
+
+load();
+</script>
+</body>
+</html>
