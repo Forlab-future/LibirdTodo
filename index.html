@@ -116,6 +116,9 @@ form.add input:focus { outline: none; border-style: solid; border-color: var(--a
 #status { text-align: center; font-size: 13px; padding: 0 12px 6px; }
 #status.err { color: var(--overdue); }
 #status button { margin-left: 6px; padding: 3px 9px; font-size: 13px; }
+/* 창(수정·알림)이 열려 있는 동안 뒤 페이지를 잠근다: 끌어도 뒤가 움직이지 않고, 창 안 스크롤도 뒤로 넘어가지 않는다 */
+html.locked, html.locked body { overflow: hidden; overscroll-behavior: none; }
+#sheet, #app-sheet, #sheet .panel, #app-sheet .panel { overscroll-behavior: contain; }
 #sheet { position: fixed; inset: 0; z-index: 10; background: rgba(0, 0, 0, .4); display: flex; align-items: flex-end; }
 #sheet .panel { width: 100%; max-width: 560px; margin: 0 auto; background: var(--card); border-radius: 14px 14px 0 0;
   padding: 16px 14px calc(14px + env(safe-area-inset-bottom)); display: flex; flex-direction: column; gap: 10px; }
@@ -746,8 +749,15 @@ function openSheet(e, date) {
   $("#ed-note").textContent = e.r ? "반복 항목이에요. 이 날짜 것만 바뀌어요."
     : e.p ? `기간 일정이에요 (${spanLabel(e.p)}). 날짜는 시작일이고, 바꾸면 기간째 옮겨져요.` : "";
   $("#sheet").classList.remove("hidden");
+  syncLock();
 }
-function closeSheet() { editing = null; $("#sheet").classList.add("hidden"); }
+function closeSheet() { editing = null; $("#sheet").classList.add("hidden"); syncLock(); }
+
+// 수정 창이나 ⚙ 창이 열려 있으면 뒤 페이지 스크롤을 잠근다 (보던 위치는 그대로)
+function syncLock() {
+  const open = !$("#sheet").classList.contains("hidden") || !$("#app-sheet").classList.contains("hidden");
+  document.documentElement.classList.toggle("locked", open);
+}
 
 $("#ed-form").addEventListener("submit", (ev) => {
   ev.preventDefault();
@@ -855,8 +865,9 @@ function openApp() {
   try { alarms = JSON.parse(app("getAlarms") || "[]"); } catch (e) { alarms = []; }
   renderApp();
   $("#app-sheet").classList.remove("hidden");
+  syncLock();
 }
-const closeApp = () => $("#app-sheet").classList.add("hidden");
+function closeApp() { $("#app-sheet").classList.add("hidden"); syncLock(); }
 
 $("#app-btn").onclick = openApp;
 $("#app-close").onclick = closeApp;
