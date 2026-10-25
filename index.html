@@ -741,7 +741,8 @@ function showStatus() {
     html = n ? `PC에서 폰 수정이 꺼져 있어요. 고친 ${n}건은 반영되지 않아요.` : "";
   } else if (!token) {
     html = APP ? "할 일을 고치려면 ⚙ → 「QR로 연결」을 누르고 PC의 「폰 연결 QR」을 찍으세요."
-      : PC ? "할 일을 고치려면 PC 프로그램 설정 → 모바일 → 「폰 연결 QR…」에서 「연결 주소 복사」를 누르고, 이 브라우저 주소창에 붙여 넣으세요."
+      : PC ? "보기 전용이에요. 할 일을 고치려면 PC 프로그램 설정 → 모바일 → 「폰 연결 QR…」에서 「연결 주소 복사」를 누르고 "
+        + `<button type="button" id="pc-pair">연결하기</button>에 붙여 넣으세요.`
       : "할 일을 고치려면 PC 설정 → 모바일 → 「폰 연결 QR」을 폰 카메라로 찍으세요.";
   } else if (pushing) {
     html = "보내는 중…";
@@ -759,6 +760,8 @@ function showStatus() {
   el.classList.toggle("err", err);
   const retry = $("#retry");
   if (retry) retry.onclick = () => pushOutbox();
+  const pair = $("#pc-pair");
+  if (pair) pair.onclick = () => pairDialog();
 }
 
 // 받은 데이터 위에 아직 반영되지 않은 작업을 얹어서 보여 준다 (PC의 반영 규칙과 같게)
@@ -1257,13 +1260,17 @@ $("#app-update").onclick = () => app("openUpdate");
 $("#app-lock").onclick = () => { closeApp(); forgetKey(); view = null; showLock(""); };
 
 // 앱이 부른다: QR을 찍었을 때, 뒤로 버튼, 다시 켰을 때, 권한을 바꾼 뒤
-window.appPair = (code) => {
+// 연결 코드(QR·연결 주소의 #pair= 뒤)를 보관하고 「방금 연결」로 다시 연다
+function connectPair(code) {
   pairCode = code;
   lsSet(PAIR_STORE, code);
   justPaired = true;
   token = null;
-  closeApp();
   if (snap && memKey) opened();
+}
+window.appPair = (code) => {
+  closeApp();
+  connectPair(code);
 };
 window.appBack = () => {
   if (!$("#sheet").classList.contains("hidden")) { closeSheet(); return true; }
@@ -2033,7 +2040,26 @@ function generalMenu() {
     {label: "년 보기", check: pc.mode === "year", fn: () => pcGo("year")},
     {label: "월 보기", check: pc.mode === "month", fn: () => pcGo("month")},
     {label: "일 보기", check: pc.mode === "day", fn: () => pcGo("day")}, "-",
-    {label: "다시 받기", fn: () => load()}, {label: "설정…", fn: () => settingsDialog(0)}, {label: "잠그기", fn: lockNow}];
+    {label: "다시 받기", fn: () => load()}, {label: "설정…", fn: () => settingsDialog(0)},
+    ...(token ? [] : [{label: "수정 연결…", fn: pairDialog}]), {label: "잠그기", fn: lockNow}];
+}
+// 고칠 수 없는 상태에서 할 일·섹션을 우클릭: 왜 안 되는지와 연결하기 (아래는 일반 메뉴)
+function viewOnlyMenu() {
+  const head = snap.edit === false ? [{label: "PC 설정에서 폰·브라우저 수정이 꺼져 있어요", off: true}]
+    : [{label: "보기 전용: 수정 연결이 안 되어 있어요", off: true}, {label: "연결하기…", fn: pairDialog}];
+  return [...head, "-", ...generalMenu().filter((it) => it === "-" || it.fn !== pairDialog)];
+}
+// 수정 연결: PC 프로그램에서 복사한 연결 주소를 붙여 넣는다 (주소창에 붙여 넣는 것과 같다)
+function pairDialog() {
+  const body = `<div style="line-height:1.8">1. PC 프로그램에서 ⚙ 설정 → 모바일 탭 → 「폰 연결 QR…」을 누릅니다.<br>`
+    + `2. 「연결 주소 복사」를 누릅니다.<br>3. 아래 칸에 붙여 넣고(Ctrl+V) 「연결」을 누릅니다.</div>`
+    + `<input id="pr-code" placeholder="https://…/#pair=1.…" aria-label="연결 주소" style="width:100%">`
+    + `<div class="muted">이 브라우저에서 한 번만 하면 됩니다. 연결 주소에는 GitHub 토큰이 보기 비밀번호로 암호화되어 들어 있습니다.</div>`;
+  openModal({title: "수정 연결", body, buttons: ["|", {label: "취소", cancel: true}, {label: "연결", primary: true, fn: (api) => {
+    const m = api.el.querySelector("#pr-code").value.trim().match(/(?:#pair=)?(1\.[A-Za-z0-9_-]{20,})$/);
+    if (!m) { api.error("연결 주소가 아니에요. PC 프로그램의 「연결 주소 복사」로 복사한 주소를 붙여 넣으세요."); return false; }
+    connectPair(m[1]);
+  }}]});
 }
 function dateMenu(k, withMonth) {
   return [{label: "이 날 보기", fn: () => pcGo("day", k)},
@@ -2286,12 +2312,12 @@ document.addEventListener("contextmenu", (ev) => {
   if (li && pc.mode === "day") {
     const id = li.dataset.id;
     if (!pc.chosen.has(id)) { pc.chosen = new Set([id]); pc.anchor = id; markChosen(); }  // 고르지 않은 항목은 그것만
-    items = ed ? itemMenu(dayTargets(chosenIds()), false) : generalMenu();
+    items = ed ? itemMenu(dayTargets(chosenIds()), false) : viewOnlyMenu();
   } else if (od) {
     const ot = overdueTarget(od.dataset.id);
-    items = ed && ot ? itemMenu([ot], true) : generalMenu();
+    items = ed && ot ? itemMenu([ot], true) : viewOnlyMenu();
   } else if (card) {
-    items = ed ? sectionMenu(card.dataset.s) : generalMenu();
+    items = ed ? sectionMenu(card.dataset.s) : viewOnlyMenu();
   } else if (t.closest(".mc[data-d]")) {
     items = dateMenu(t.closest(".mc").dataset.d, false);
   } else if (t.closest(".ym .d[data-d]")) {
