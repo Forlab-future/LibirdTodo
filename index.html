@@ -16,13 +16,21 @@
   --accent: #4C8BF5; --red: #E5484D; --blue: #2F6FED; --star: #F2A900;
   --out: #F9FAFB; --today: #EAF2FF; --sel: #DCE8FD; --overdue-bg: #FFF7F7; --overdue: #B4232A;
 }
+/* 다크: 기기 설정을 따르고, PC 화면 설정에서 이 브라우저만 라이트/다크로 정할 수 있다 (<html data-theme>) */
 @media (prefers-color-scheme: dark) {
-  :root {
+  :root:not([data-theme="light"]) {
     --bg: #1C1D20; --card: #2A2C30; --border: #3B3E44; --text: #E4E6E9; --muted: #959BA4;
     --accent: #4C8BF5; --red: #F26B70; --blue: #6E9DFF; --star: #F5C542;
     --out: #232528; --today: #22324F; --sel: #2E3D5C; --overdue-bg: #352325; --overdue: #FF8C91;
   }
 }
+:root[data-theme="dark"] {
+  color-scheme: dark;
+  --bg: #1C1D20; --card: #2A2C30; --border: #3B3E44; --text: #E4E6E9; --muted: #959BA4;
+  --accent: #4C8BF5; --red: #F26B70; --blue: #6E9DFF; --star: #F5C542;
+  --out: #232528; --today: #22324F; --sel: #2E3D5C; --overdue-bg: #352325; --overdue: #FF8C91;
+}
+:root[data-theme="light"] { color-scheme: light; }
 * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
 html, body { margin: 0; background: var(--bg); color: var(--text);
   font-family: "Malgun Gothic", "Apple SD Gothic Neo", "Noto Sans KR", system-ui, sans-serif; }
@@ -171,9 +179,11 @@ footer a { color: var(--accent); }
 :root { --select: #E6EEFC; --list-hover: #F3F5F8; --btn-hover: #EEF0F3; --btn-pressed: #E3E6EA; --checked-bg: #2E3540;
   --input-bg: #FAFBFC; --indicator: #B5BBC4; --done: #A0A5AD; --hover: #F1F5FD; --overdue-border: #F2CACA; }
 @media (prefers-color-scheme: dark) {
-  :root { --select: #2E3D5C; --list-hover: #33363C; --btn-hover: #35383E; --btn-pressed: #3F434A; --checked-bg: #4C8BF5;
-    --input-bg: #25272B; --indicator: #6B717A; --done: #6F757E; --hover: #30364A; --overdue-border: #5A3236; }
+  :root:not([data-theme="light"]) { --select: #2E3D5C; --list-hover: #33363C; --btn-hover: #35383E; --btn-pressed: #3F434A;
+    --checked-bg: #4C8BF5; --input-bg: #25272B; --indicator: #6B717A; --done: #6F757E; --hover: #30364A; --overdue-border: #5A3236; }
 }
+:root[data-theme="dark"] { --select: #2E3D5C; --list-hover: #33363C; --btn-hover: #35383E; --btn-pressed: #3F434A;
+  --checked-bg: #4C8BF5; --input-bg: #25272B; --indicator: #6B717A; --done: #6F757E; --hover: #30364A; --overdue-border: #5A3236; }
 html:not(.pc) #pc { display: none !important; }
 html.pc #main > header, html.pc #cal, html.pc #day { display: none; }
 html.pc, html.pc body { height: 100%; overflow: hidden; }
@@ -181,11 +191,12 @@ html.pc body { font-size: 10pt; padding: 0; }
 html.pc #main { height: 100%; }
 #pc { display: flex; flex-direction: column; height: 100%; user-select: none; }
 #pc input { user-select: text; }
-#pc button, #pc-dlg button { font-size: 10pt; border-radius: 6px; padding: 4px 10px; background: var(--card); border: 1px solid var(--border); }
-#pc button:hover, #pc-dlg button:hover { background: var(--btn-hover); }
-#pc button:active, #pc-dlg button:active { background: var(--btn-pressed); }
+#pc button, .pc-dlg button { font-size: 10pt; border-radius: 6px; padding: 4px 10px; color: var(--text); background: var(--card); border: 1px solid var(--border); }
+#pc button:hover, .pc-dlg button:hover { background: var(--btn-hover); }
+#pc button:active, .pc-dlg button:active { background: var(--btn-pressed); }
+#pc button:disabled, .pc-dlg button:disabled { color: var(--muted); background: var(--card); opacity: .6; cursor: default; }
 #pc button.on, #pc button.on:hover { background: var(--checked-bg); border-color: var(--checked-bg); color: #fff; }
-#pc-dlg button.primary, #pc-dlg button.primary:hover { background: var(--accent); border-color: var(--accent); color: #fff; }
+.pc-dlg button.primary, .pc-dlg button.primary:hover { background: var(--accent); border-color: var(--accent); color: #fff; }
 .topbar { flex: none; display: flex; align-items: center; gap: 6px; padding: 8px 12px; background: var(--card); border-bottom: 1px solid var(--border); }
 .topbar h1 { margin: 0 0 0 8px; font-size: 13.5pt; white-space: nowrap; }
 #pc .sp { flex: 1; }
@@ -301,6 +312,7 @@ html.pc #status button { padding: 1px 8px; font-size: 9pt; }
 .menu .mr.dis { color: var(--muted); }
 .menu .mr .k, .menu .mr.sub::after { margin-left: auto; padding-left: 24px; color: var(--muted); }
 .menu .mr.sub::after { content: "▸"; }
+.menu .mr .ck { position: absolute; left: 7px; }
 .menu .msep { height: 1px; margin: 4px 6px; background: var(--border); }
 .menu.child { position: absolute; left: 100%; top: -5px; }
 .menu.child.flip { left: auto; right: 100%; }
@@ -309,11 +321,52 @@ html.pc #status button { padding: 1px 8px; font-size: 9pt; }
 #pc-tip table { border-spacing: 2px; }
 #pc-tip td { vertical-align: top; }
 #pc-tip .r { color: var(--red); } #pc-tip .s { color: var(--star); }
-#pc-dlg { position: fixed; inset: 0; z-index: 35; display: flex; align-items: center; justify-content: center; background: rgba(0, 0, 0, .3); }
-#pc-dlg form { min-width: 260px; display: flex; flex-direction: column; gap: 10px; padding: 14px; font-size: 10pt;
-  background: var(--bg); border: 1px solid var(--border); border-radius: 8px; }
-#pc-dlg input { font: inherit; padding: 4px 6px; color: var(--text); background: var(--card); border: 1px solid var(--border); border-radius: 6px; }
-#pc-dlg .actions { display: flex; gap: 6px; justify-content: flex-end; }
+
+/* PC 화면 대화상자 (기간·반복·섹션·설정·날짜 고르기·확인) — PC 프로그램 대화상자처럼 바깥을 눌러도 닫히지 않는다 */
+.pc-ov { position: fixed; inset: 0; z-index: 35; display: flex; align-items: center; justify-content: center; background: rgba(0, 0, 0, .3); }
+.pc-dlg { min-width: 320px; max-width: min(560px, 94vw); max-height: 92vh; overflow-y: auto; display: flex; flex-direction: column;
+  gap: 10px; padding: 14px 16px; font-size: 10pt; color: var(--text); background: var(--bg); border: 1px solid var(--border);
+  border-radius: 8px; box-shadow: 0 10px 30px rgba(0, 0, 0, .25); user-select: none; }
+.pc-dlg .dt { font-weight: bold; font-size: 11pt; }
+.pc-dlg .db { display: flex; flex-direction: column; gap: 8px; }
+.pc-dlg .q { font-weight: bold; word-break: break-word; }
+.pc-dlg .row { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.pc-dlg .row > .lb { flex: none; width: 72px; }
+.pc-dlg input:not([type=checkbox]):not([type=color]), .pc-dlg select { font: inherit; color: var(--text); background: var(--card);
+  border: 1px solid var(--border); border-radius: 6px; padding: 3px 6px; user-select: text; }
+.pc-dlg input:focus, .pc-dlg select:focus { outline: none; border-color: var(--accent); }
+.pc-dlg input:disabled, .pc-dlg select:disabled { color: var(--muted); }
+.pc-dlg input[type=color] { width: 36px; height: 26px; padding: 1px 2px; border: 1px solid var(--border); border-radius: 6px; background: var(--card); }
+.pc-dlg .err { color: var(--red); }
+.pc-dlg .err:empty { display: none; }
+.pc-dlg .actions { display: flex; gap: 6px; justify-content: flex-end; flex-wrap: wrap; margin-top: 2px; }
+.pc-dlg .actions .sp { flex: 1; }
+.pc-dlg .grp { display: flex; flex-direction: column; gap: 8px; padding: 10px; background: var(--card); border: 1px solid var(--border); border-radius: 8px; }
+.pc-dlg .tabs { display: flex; gap: 2px; border-bottom: 1px solid var(--border); }
+.pc-dlg .tabs button { padding: 5px 14px; border: 1px solid transparent; border-bottom: none; border-radius: 6px 6px 0 0;
+  background: transparent; color: var(--muted); margin-bottom: -1px; }
+.pc-dlg .tabs button.on { background: var(--card); color: var(--text); border-color: var(--border); }
+.pc-dlg .secrow { display: flex; gap: 6px; align-items: center; }
+.pc-dlg .secrow input[type=text] { flex: 1; min-width: 0; }
+.pc-dlg .secrow button { padding: 3px 8px; }
+.pc-dlg .wds { display: flex; gap: 10px; flex-wrap: wrap; }
+.pc-dlg .wds label, .pc-dlg label.ck { display: inline-flex; align-items: center; gap: 4px; }
+.pc-dlg .mhead { display: flex; align-items: center; justify-content: space-between; }
+.mcal { display: grid; grid-template-columns: repeat(7, 36px); gap: 2px; justify-content: center; }
+.mcal span { height: 28px; display: grid; place-items: center; border-radius: 6px; }
+.mcal .w { color: var(--muted); font-weight: bold; }
+.mcal .d { cursor: pointer; }
+.mcal .r { color: var(--red); } .mcal .b { color: var(--blue); }
+.mcal .o { opacity: .45; }
+.mcal .d:hover { background: var(--select); }
+.mcal .t { box-shadow: inset 0 0 0 1.5px var(--accent); }
+.mcal .s, .mcal .s:hover { background: var(--accent); color: #fff; opacity: 1; }
+
+/* 드래그로 옮기기: 놓을 자리 표시 */
+#pc .cl li.drop-before { box-shadow: inset 0 2px 0 var(--accent); }
+#pc .cl.drop-end li:last-child { box-shadow: inset 0 -2px 0 var(--accent); }
+#pc .cl.drop-end:empty { box-shadow: inset 0 2px 0 var(--accent); }
+.dragimg { position: fixed; top: -100px; left: 0; padding: 3px 10px; border-radius: 10px; font-size: 10pt; background: var(--accent); color: #fff; }
 </style>
 </head>
 <body>
@@ -347,13 +400,14 @@ html.pc #status button { padding: 1px 8px; font-size: 9pt; }
   <div id="pc">
     <div class="topbar">
       <button type="button" id="pc-prev" title="이전 (Ctrl+←)">◀</button>
-      <button type="button" id="pc-today" title="오늘">오늘</button>
+      <button type="button" id="pc-today" title="오늘 (T)">오늘</button>
       <button type="button" id="pc-next" title="다음 (Ctrl+→)">▶</button>
       <h1 id="pc-title"></h1>
       <span class="sp"></span>
       <span id="pc-modes"><button type="button" data-m="year" title="년 보기">년</button><button type="button" data-m="month"
         title="월/일 보기 전환 (Ctrl+M)">월</button><button type="button" data-m="day" title="월/일 보기 전환 (Ctrl+M)">일</button></span>
       <button type="button" id="pc-reload" title="다시 받기">⟳</button>
+      <button type="button" id="pc-settings" title="설정">⚙ 설정</button>
       <button type="button" id="pc-lock" title="이 브라우저에서 잠그기 (보기 비밀번호를 다시 물음)">잠그기</button>
     </div>
     <div id="pc-view"></div>
@@ -364,13 +418,6 @@ html.pc #status button { padding: 1px 8px; font-size: 9pt; }
 </div>
 <div id="pc-menu" class="hidden"></div>
 <div id="pc-tip" class="hidden"></div>
-<div id="pc-dlg" class="hidden">
-  <form id="pc-dlg-form" autocomplete="off">
-    <b>다른 날짜로 이동</b>
-    <input id="pc-date" type="date" aria-label="옮길 날짜">
-    <div class="actions"><button type="button" id="pc-dlg-cancel">취소</button><button type="submit" class="primary">확인</button></div>
-  </form>
-</div>
 
 <div id="sheet" class="hidden">
   <form class="panel" id="ed-form" autocomplete="off">
@@ -407,6 +454,7 @@ html.pc #status button { padding: 1px 8px; font-size: 9pt; }
 "use strict";
 const CFG = {"owner": "Forlab-future", "repo": "LibirdTodo", "branch": "snapshot", "file": "snapshot.json", "inbox": "inbox", "inbox_dir": "inbox"};
 const WEEKDAYS = ["월", "화", "수", "목", "금", "토", "일"];  // 파이썬 weekday() 순서
+const SECTION_COLORS = ["#4C8BF5", "#F29D38", "#34A853", "#A259FF", "#E5484D", "#14B8A6", "#F2C94C", "#8A9099"];  // PC와 같은 순서
 const REPO = CFG.owner + "/" + CFG.repo;
 const KEY_STORE = "libird.key." + REPO;
 const PAIR_STORE = "libird.pair." + REPO;       // QR로 받은 토큰 (보기 비밀번호 키로 암호화된 채)
@@ -717,10 +765,14 @@ function showStatus() {
 function derive() {
   const days = {};
   for (const [k, list] of Object.entries(snap.days)) days[k] = list.map((e) => ({...e}));
-  const d = {days, overdue: snap.overdue.map((e) => ({...e}))};
+  const d = {days, overdue: snap.overdue.map((e) => ({...e})), sections: snap.sections.map((s) => ({...s})),
+    week_start: snap.week_start, recurrences: (snap.recurrences || []).map((r) => ({...r}))};
   pendingIds = new Set();
   if (snap.edit !== false) {
-    for (const op of pending) { applyLocal(d, op); pendingIds.add(op.item); }
+    for (const op of pending) {
+      applyLocal(d, op);
+      for (const id of op.items || [op.item]) if (id) pendingIds.add(id);
+    }
   }
   d.overdue = d.overdue.filter((e) => !e.done);
   data = d;
@@ -738,15 +790,33 @@ function sendView() {
   if (v !== lastSent) { lastSent = v; app("saveView", v); }
 }
 
+// 하루 목록 정렬: 섹션 순서, 섹션 안에서는 기간 일정이 맨 위 (PC _day_key와 같고, 나머지 순서는 그대로)
+function sortDay(d, list) {
+  const rank = Object.fromEntries(d.sections.map((s, i) => [s.id, i]));
+  list.sort((a, b) => (rank[a.s] ?? 99) - (rank[b.s] ?? 99) || (a.p ? 0 : 1) - (b.p ? 0 : 1));
+}
+function dayRange(a, b) {  // a~b 날짜 목록
+  const out = [], s = fromIso(a);
+  for (let i = 0; i < 400; i++) {
+    const k = iso(new Date(s.getFullYear(), s.getMonth(), s.getDate() + i));
+    if (k > b) break;
+    out.push(k);
+  }
+  return out;
+}
+
 function applyLocal(d, op) {
   const hits = [];
-  for (const list of Object.values(d.days)) for (const e of list) if (e.id === op.item) hits.push({list, e});
+  for (const [k, list] of Object.entries(d.days)) for (const e of list) if (e.id === op.item) hits.push({k, list, e});
   const od = d.overdue.find((e) => e.id === op.item);
   const all = hits.map((h) => h.e).concat(od ? [od] : []);
   const dropDays = () => { for (const h of hits) h.list.splice(h.list.indexOf(h.e), 1); };
   const dropOverdue = () => { if (od) d.overdue.splice(d.overdue.indexOf(od), 1); };
+  const put = (k, e) => { const list = (d.days[k] ||= []); list.push(e); sortDay(d, list); };
+  const firstDay = () => (hits.length ? hits.map((h) => h.k).sort()[0] : od ? od.date : null);
+  const todayK = iso(new Date());
   if (op.k === "add") {
-    if (!all.length) (d.days[op.date] ||= []).push({id: op.item, t: op.text, s: op.section, done: false, star: false, r: false});
+    if (!all.length) put(op.date, {id: op.item, t: op.text, s: op.section, done: false, star: false, r: false});
   } else if (op.k === "done") {
     for (const e of all) e.done = op.done;
   } else if (op.k === "star") {
@@ -754,8 +824,17 @@ function applyLocal(d, op) {
   } else if (op.k === "text") {
     for (const e of all) e.t = op.text;
   } else if (op.k === "delete") {
+    const from = firstDay(), rid = all.length && all[0].rid;
     dropDays();
     dropOverdue();
+    if (op.mode === "following" && rid && from) {  // 반복 항목: 이 날짜 이후 전체
+      for (const [k, list] of Object.entries(d.days)) if (k >= from) d.days[k] = list.filter((e) => e.rid !== rid);
+    }
+  } else if (op.k === "stoprecur" && all.length && all[0].rid) {
+    const from = firstDay(), rid = all[0].rid;
+    for (const [k, list] of Object.entries(d.days)) if (k > from) d.days[k] = list.filter((e) => e.rid !== rid);
+  } else if (op.k === "recur") {
+    for (const e of all) e.r = true;  // 다른 날의 회차는 PC가 반영한 뒤 받은 데이터에 나온다
   } else if (op.k === "move" && all.length) {
     const moved = {...all[0], s: op.section || all[0].s};
     delete moved.date;
@@ -766,13 +845,57 @@ function applyLocal(d, op) {
       const s = fromIso(op.date);
       due = iso(new Date(s.getFullYear(), s.getMonth(), s.getDate() + len));
       moved.p = [op.date, due];
-      for (let i = 0; i <= len; i++) {
-        (d.days[iso(new Date(s.getFullYear(), s.getMonth(), s.getDate() + i))] ||= []).push({...moved});
-      }
+      for (let i = 0; i <= len; i++) put(iso(new Date(s.getFullYear(), s.getMonth(), s.getDate() + i)), {...moved});
     } else {
-      (d.days[op.date] ||= []).push(moved);
+      put(op.date, moved);
     }
-    if (od && due < iso(new Date())) { od.date = op.date; od.s = moved.s; od.p = moved.p; } else dropOverdue();
+    if (od && due < todayK) { od.date = op.date; od.s = moved.s; od.p = moved.p; } else dropOverdue();
+  } else if (op.k === "period" && all.length && !all[0].r) {
+    const base = {...all[0]};
+    delete base.date;
+    dropDays();
+    const end = op.end && op.end > op.start ? op.end : null;
+    if (end) base.p = [op.start, end]; else delete base.p;
+    for (const k of dayRange(op.start, end || op.start)) put(k, {...base});
+    if (od && (end || op.start) < todayK) { od.date = op.start; od.p = base.p; } else dropOverdue();
+  } else if (op.k === "place") {  // 드래그: 그 날·그 섹션 목록의 그 자리에 끼워 넣기 (PC move_items와 같은 계산)
+    const list = d.days[op.date] || [];
+    const ids = op.items.filter((id, i) => op.items.indexOf(id) === i);
+    const target = list.filter((e) => e.s === op.section);
+    const before = target.slice(0, op.index).filter((e) => ids.includes(e.id)).length;
+    const moved = ids.map((id) => list.find((e) => e.id === id)).filter(Boolean).map((e) => ({...e, s: op.section}));
+    const rest = list.filter((e) => !ids.includes(e.id));
+    const tgt = rest.filter((e) => e.s === op.section), pos = Math.max(0, Math.min(op.index - before, tgt.length));
+    const newList = rest.filter((e) => e.s !== op.section).concat(tgt.slice(0, pos), moved, tgt.slice(pos));
+    sortDay(d, newList);
+    d.days[op.date] = newList;
+    for (const m of moved) if (m.p) {  // 기간 일정은 다른 날 목록에서도 섹션을 바꾼다
+      for (const l of Object.values(d.days)) for (const e of l) if (e.id === m.id) e.s = op.section;
+    }
+    for (const e of d.overdue) if (ids.includes(e.id)) e.s = op.section;
+  } else if (op.k === "section") {
+    const s = d.sections.find((x) => x.id === op.section);
+    if (s) { if (op.name) s.name = op.name; if (op.color) s.color = op.color; }
+  } else if (op.k === "addsection") {
+    if (!d.sections.some((x) => x.id === op.section)) {
+      const used = new Set(d.sections.map((x) => x.color.toLowerCase()));
+      d.sections.push({id: op.section, name: op.name || `섹션 ${d.sections.length + 1}`, n: 0, rn: 0,
+        color: op.color || SECTION_COLORS.find((c) => !used.has(c.toLowerCase())) || SECTION_COLORS[d.sections.length % 8]});
+    }
+  } else if (op.k === "delsection") {
+    if (d.sections.length > 1 && d.sections.some((x) => x.id === op.section)) {
+      d.sections = d.sections.filter((x) => x.id !== op.section);
+      const fix = (list) => (op.move_to ? (list.forEach((e) => { if (e.s === op.section) e.s = op.move_to; }), list)
+        : list.filter((e) => e.s !== op.section));
+      for (const k of Object.keys(d.days)) { d.days[k] = fix(d.days[k]); sortDay(d, d.days[k]); }
+      d.overdue = fix(d.overdue);
+    }
+  } else if (op.k === "sectionorder") {
+    const rank = Object.fromEntries(op.ids.map((id, i) => [id, i]));
+    d.sections.sort((a, b) => (rank[a.id] ?? 99) - (rank[b.id] ?? 99));
+    for (const list of Object.values(d.days)) sortDay(d, list);
+  } else if (op.k === "setting" && op.key === "week_start") {
+    d.week_start = op.value;
   }
 }
 
@@ -1169,16 +1292,24 @@ document.addEventListener("visibilitychange", () => {
 });
 window.addEventListener("online", () => { if (canEdit() && needsPush()) pushOutbox(); });
 
-// ------------------------------------------------------------ PC 화면 (PC 프로그램과 같은 모양)
-// 데이터·암호·고치기(작업을 만들어 올리기)는 위 코드를 그대로 쓰고, 그리기와 마우스·키보드 조작만 PC 프로그램을 따른다.
-// 고칠 수 있는 범위는 폰과 같다: 추가, 체크, ★, 글, 날짜·섹션 옮기기, 삭제 (기간·반복·섹션 설정은 PC 프로그램에서만)
+// ------------------------------------------------------------ PC 화면 (PC 프로그램과 같은 모양·기능)
+// 데이터·암호·작업 올리기는 위 코드를 그대로 쓰고, 그리기와 마우스·키보드 조작은 PC 프로그램을 따른다.
+// PC 프로그램과 같은 기능: 드래그로 옮기기, 기간·반복 설정, 섹션 편집·설정, 주 시작 요일 — 작업으로 보내면 PC가 반영한다.
+// 브라우저가 쓰는 키(Ctrl+N, Ctrl+T)는 N, T로 대신하고, 배율은 브라우저 배율(Ctrl+휠, Ctrl+= / - / 0)을 쓴다.
 const PC_MODE_STORE = "libird.pc.mode";        // 마지막 보기: year / month / day
 const PC_FOLD_STORE = "libird.pc.overdueFolded"; // 밀린 일 패널 접힘
-const pc = {mode: "month", cur: null, today: null, chosen: new Set(), anchor: null, editing: false,
-  dragSel: false, wheel: 0, keptDate: null, tipEl: null, dateDone: null};
+const THEME_STORE = "libird.theme";            // 이 브라우저의 테마: (없음)=기기 설정 / light / dark
+const pc = {mode: "month", cur: null, today: null, chosen: new Set(), anchor: null, editing: false, dragSel: false,
+  drag: null, single: null, wheel: 0, keptDate: null, tipEl: null, lastSec: null};
 let FH = 0, LH = 0;  // 글자 높이, 월 보기 줄 높이(글자 높이+2)
 
+function applyTheme() {
+  const t = lsGet(THEME_STORE);
+  if (t === "light" || t === "dark") document.documentElement.dataset.theme = t;
+  else delete document.documentElement.dataset.theme;
+}
 if (PC) {
+  applyTheme();
   const m = lsGet(PC_MODE_STORE);
   if (["year", "month", "day"].includes(m)) pc.mode = m;
   $("#pc-foot").append($("#status"), $("#updated"));
@@ -1194,7 +1325,7 @@ const wdOf = (k) => WEEKDAYS[pyWd(fromIso(k))];
 const fullLabel = (k) => { const d = fromIso(k); return `${d.getFullYear()}년 ${d.getMonth() + 1}월 ${d.getDate()}일 (${wdOf(k)})`; };
 const shortLabel = (k) => { const d = fromIso(k); return `${d.getMonth() + 1}/${d.getDate()} (${wdOf(k)})`; };
 const dayCls = (k) => pyWd(fromIso(k)) === 6 || snap.holidays[k] ? "r" : pyWd(fromIso(k)) === 5 ? "b" : "";
-const secMap = () => Object.fromEntries(snap.sections.map((s) => [s.id, s]));
+const secMap = () => Object.fromEntries(data.sections.map((s) => [s.id, s]));
 const secColor = (secs, id) => (secs[id] || {}).color || "#8A9099";
 function rgba(hex, a) {
   const n = parseInt(String(hex).slice(1, 7), 16) || 0;
@@ -1210,6 +1341,16 @@ function measure() {
   p.remove();
   LH = FH + 2;
 }
+// 반복 규칙 설명 (PC recurrence.describe와 같다)
+function describeRule(rule) {
+  if (!rule) return "";
+  if (rule.type === "daily") return "매일";
+  if (rule.type === "weekdays") return "평일(월–금)";
+  if (rule.type === "weekly") return "매주 " + [...rule.weekdays].sort((a, b) => a - b).map((w) => WEEKDAYS[w]).join(", ");
+  if (rule.type === "monthly") return `매월 ${rule.day}일`;
+  return "";
+}
+const recOf = (e) => (e && e.rid ? data.recurrences.find((r) => r.id === e.rid) || null : null);
 
 function renderPC() {
   const c = fromIso(pc.cur);
@@ -1231,7 +1372,7 @@ function renderPC() {
 
 // ---------------- 년 보기
 function renderYear(v) {
-  const year = fromIso(pc.cur).getFullYear(), t = new Date(), tk = iso(t), ws = snap.week_start;
+  const year = fromIso(pc.cur).getFullYear(), t = new Date(), tk = iso(t), ws = data.week_start;
   const W = v.clientWidth, H = v.clientHeight, cols = W >= H * 1.1 ? 4 : 3, rows = 12 / cols;
   const cw = ((W - 10) / cols - 6 - 12) / 7, ch = ((H - 10) / rows - 6 - 25 - 6) / 7;
   const fs = Math.max(7, Math.min(ch * 0.5, cw * 0.45, FH * 0.85));
@@ -1303,7 +1444,7 @@ function runs(cols) {  // [0, 1, 2, 5, 6] → [[0, 2], [5, 6]]
 const itemText = (e) => (e.star ? `<span class="s">★ </span>` : "") + esc(e.t);
 
 function renderMonth(v) {
-  const c = fromIso(pc.cur), ws = snap.week_start, tk = iso(new Date());
+  const c = fromIso(pc.cur), ws = data.week_start, tk = iso(new Date());
   const first = new Date(c.getFullYear(), c.getMonth(), 1), offset = (pyWd(first) - ws + 7) % 7;
   const start = new Date(c.getFullYear(), c.getMonth(), 1 - offset);
   const weeks = Math.ceil(Math.round((new Date(c.getFullYear(), c.getMonth() + 1, 1) - start) / 864e5) / 7);
@@ -1387,11 +1528,12 @@ function periodTip(p, k) {
   return `기간: ${shortLabel(p[0])} ~ ${shortLabel(p[1])}, ${total}일 중 ${nth}일째`;
 }
 
-function pcRow(e, k) {
+function pcRow(e, k, ed) {
   const cls = [e.done && "done", pendingIds.has(e.id) && "pending", pc.chosen.has(e.id) && "sel"].filter(Boolean).join(" ");
-  const tip = e.p ? periodTip(e.p, k) : e.r ? "반복 항목" : "";
-  return `<li class="${cls}" data-id="${esc(e.id)}"${tip ? ` data-tip="${esc(tip)}"` : ""}><span class="cbx"></span>`
-    + `<span class="tx">${esc(e.t)}${e.p ? `&nbsp; · ${spanLabel(e.p)}` : ""}</span>`
+  const rec = recOf(e);
+  const tip = e.p ? periodTip(e.p, k) : e.r ? (rec ? `반복: ${describeRule(rec.rule)}` : "반복 항목") : "";
+  return `<li class="${cls}" data-id="${esc(e.id)}"${tip ? ` data-tip="${esc(tip)}"` : ""}${ed ? ` draggable="true"` : ""}>`
+    + `<span class="cbx"></span><span class="tx">${esc(e.t)}${e.p ? `&nbsp; · ${spanLabel(e.p)}` : ""}</span>`
     + (e.r ? `<span class="rc">↻</span>` : "")
     + `<span class="pst${e.star ? "" : " off"}">${e.star ? "★" : "☆"}</span></li>`;
 }
@@ -1421,16 +1563,17 @@ function renderPcDay(v) {
   let html = `<div class="dv${ed ? " edit" : ""}"><div class="dhead"><span class="dtitle ${dayCls(k)}">${fullLabel(k)}</span>`
     + (hol ? `<span class="dhol">${esc(hol)}</span>` : "") + `<span class="sp"></span>`
     + `<span class="muted">${diff === 0 ? "오늘" : `${Math.abs(diff)}일 ${diff > 0 ? "후" : "전"}`}</span></div>` + overdueHtml(ed);
-  const entries = data.days[k] || [], n = snap.sections.length;
+  const entries = data.days[k] || [], n = data.sections.length;
   const cols = pcColumns(n, v.clientWidth, v.clientHeight), rows = Math.ceil(n / cols);
   html += `<div class="sgrid" style="grid-template-columns:repeat(${cols},minmax(0,1fr));grid-template-rows:repeat(${rows},minmax(150px,1fr))">`;
   const shown = new Set();
-  for (const sec of snap.sections) {
+  for (const sec of data.sections) {
     const list = entries.filter((e) => e.s === sec.id), done = list.filter((e) => e.done).length;
     list.forEach((e) => shown.add(e.id));
-    html += `<div class="card" data-s="${esc(sec.id)}"><div class="chead"><span class="cb5" style="background:${sec.color}"></span>`
+    html += `<div class="card" data-s="${esc(sec.id)}"><div class="chead"${ed ? ` title="더블클릭하여 이름·색 변경"` : ""}>`
+      + `<span class="cb5" style="background:${sec.color}"></span>`
       + `<b>${esc(sec.name)}</b><span class="cnt">${list.length ? `${done}/${list.length}` : ""}</span></div>`
-      + `<ul class="cl" data-s="${esc(sec.id)}">${list.map((e) => pcRow(e, k)).join("")}</ul>`
+      + `<ul class="cl" data-s="${esc(sec.id)}">${list.map((e) => pcRow(e, k, ed)).join("")}</ul>`
       + (ed ? `<form class="addf" data-s="${esc(sec.id)}"><input class="addin" data-s="${esc(sec.id)}" maxlength="500"`
         + ` placeholder="+ 할 일 입력 후 Enter" aria-label="${esc(sec.name)}에 할 일 추가"></form>` : "")
       + `</div>`;
@@ -1470,7 +1613,15 @@ function clearChosen() {
 // 고른 항목 id (섹션 순서, 섹션 안에서는 보이는 순서)
 const chosenIds = () => [...document.querySelectorAll("#pc .cl li.sel[data-id]")].map((li) => li.dataset.id);
 const rowOf = (id) => document.querySelector(`#pc .cl li[data-id="${CSS.escape(id)}"]`);
-const startOf = (e) => (e.p ? e.p[0] : pc.cur);  // 옮길 때 기준 날짜 (기간 일정은 시작일)
+
+// 동작 대상 {id, e, date}: date는 옮길 때 기준 날짜 (기간 일정은 시작일, 밀린 일은 원래 날짜, 그 밖은 보는 날)
+function dayTargets(ids) {
+  return ids.map((id) => { const e = findEntry(id); return e && {id, e, date: e.p ? e.p[0] : pc.cur}; }).filter(Boolean);
+}
+function overdueTarget(id) {
+  const e = data.overdue.find((x) => x.id === id);
+  return e ? {id, e, date: e.p ? e.p[0] : e.date} : null;
+}
 
 // ---------------- 이동
 function pcGo(mode, k) {
@@ -1488,25 +1639,39 @@ function pcStep(n) {
 }
 const goUp = () => { if (pc.mode !== "year") pcGo(pc.mode === "day" ? "month" : "year"); };
 const goDown = () => { if (pc.mode !== "day") pcGo(pc.mode === "year" ? "month" : "day"); };
+function goToday() { pc.cur = iso(new Date()); closeMenu(); render(); }
+function lockNow() { closeMenu(); forgetKey(); pc.cur = null; showLock(""); }
+// 새 할 일 (PC Ctrl+N → N): 마지막으로 쓴 섹션(없으면 첫 섹션) 입력란. 월·년 보기면 일 보기로
+function focusAdd(sid) {
+  if (!canEdit()) return;
+  if (pc.mode !== "day") pcGo("day");
+  const s = sid || pc.lastSec;
+  const inp = (s && document.querySelector(`#pc .addin[data-s="${CSS.escape(s)}"]`)) || document.querySelector("#pc .addin");
+  if (inp) { inp.focus(); inp.select(); }
+}
 
 // ---------------- 고치기
-function toggleDone(ids) {
-  const es = ids.map(findEntry).filter(Boolean), done = !es.every((e) => e.done);
-  addOps(es.map((e) => ["done", {item: e.id, done}]));
+function toggleDone(ts) {
+  const done = !ts.every((t) => t.e.done);
+  addOps(ts.map((t) => ["done", {item: t.id, done}]));
 }
-function deleteIds(ids) {
-  const es = ids.map(findEntry).filter(Boolean);
-  if (!es.length) return;
-  const rec = es.some((e) => e.r);
-  if (es.length > 1) {
-    if (!confirm(`고른 할 일 ${es.length}개를 삭제할까요?` + (rec ? "\n반복 항목은 이 날짜 것만 지워집니다." : ""))) return;
-  } else if (rec && !confirm(`「${es[0].t}」은(는) 반복 항목이에요. 이 날짜 것만 지울까요?`)) return;
-  for (const e of es) pc.chosen.delete(e.id);
-  addOps(es.map((e) => ["delete", {item: e.id}]));
-}
-function moveIds(ids, where) {  // where(e) → {date, section?}
-  const es = ids.map(findEntry).filter(Boolean);
-  addOps(es.map((e) => ["move", {item: e.id, ...where(e)}]));
+const moveTargets = (ts, where) => addOps(ts.map((t) => ["move", {item: t.id, ...where(t)}]));
+function deleteTargets(ts) {
+  if (!ts.length) return;
+  const drop = (mode) => {
+    for (const t of ts) pc.chosen.delete(t.id);
+    addOps(ts.map((t) => ["delete", {item: t.id, ...(mode ? {mode} : {})}]));
+  };
+  if (ts.length === 1 && ts[0].e.r) {  // PC와 같은 질문
+    openModal({title: "반복 항목 삭제", body: `<div>반복 항목을 어떻게 삭제할까요?</div>`,
+      buttons: [{label: "이 날짜만", fn: () => drop(null)}, {label: "이 날짜 이후 전체", fn: () => drop("following")},
+        {label: "취소", cancel: true}]});
+  } else if (ts.length > 1) {
+    const rec = ts.some((t) => t.e.r);
+    ask("삭제", `고른 할 일 ${ts.length}개를 삭제할까요?` + (rec ? "<br>반복 항목은 이 날짜 것만 지워집니다." : ""), () => drop(null));
+  } else {
+    drop(null);  // 일반 항목 하나는 묻지 않는다 (PC와 같다)
+  }
 }
 
 // 인라인 수정: 더블클릭·F2. Enter·포커스 잃음 = 저장, Esc = 취소, 빈 글 = 원래대로
@@ -1516,6 +1681,7 @@ function startEdit(id) {
   closeMenu();
   hideTip();
   pc.editing = true;
+  li.draggable = false;
   const tx = li.querySelector(".tx");
   tx.innerHTML = `<input class="ined" maxlength="500" aria-label="할 일 수정">`;
   const inp = tx.querySelector("input");
@@ -1540,28 +1706,342 @@ function startEdit(id) {
   inp.addEventListener("blur", () => finish(true));
 }
 
-// ---------------- 우클릭 메뉴 (PC 프로그램과 같은 순서)
-function openMenu(x, y, ids) {
-  const es = ids.map(findEntry).filter(Boolean);
-  if (!es.length) return;
-  const multi = es.length > 1, allStar = es.every((e) => e.star);
-  const tomorrow = addDays(iso(new Date()), 1), pcOnly = "PC 프로그램에서만 할 수 있어요";
+// ---------------- 대화상자 (PC 프로그램 대화상자와 같은 내용)
+// buttons: {label, primary(Enter·확인), cancel, fn(api) → false면 닫지 않음} 또는 "|"(왼쪽·오른쪽 나누기)
+function openModal({title, body, buttons, onOpen}) {
+  const ov = document.createElement("div");
+  ov.className = "pc-ov";
+  ov.innerHTML = `<form class="pc-dlg" autocomplete="off" novalidate><div class="dt">${esc(title)}</div>`
+    + `<div class="db">${body}</div><div class="err"></div><div class="actions"></div></form>`;
+  const form = ov.querySelector("form"), acts = ov.querySelector(".actions");
+  const api = {el: form, close: () => ov.remove(), error: (t) => { form.querySelector(".err").textContent = t || ""; }};
+  for (const b of buttons) {
+    if (b === "|") { acts.insertAdjacentHTML("beforeend", `<span class="sp"></span>`); continue; }
+    const btn = document.createElement("button");
+    btn.type = b.primary ? "submit" : "button";
+    btn.textContent = b.label;
+    if (b.primary) btn.className = "primary";
+    if (b.id) btn.id = b.id;
+    if (!b.primary) btn.onclick = () => { if (b.cancel || !b.fn || b.fn(api) !== false) api.close(); };
+    acts.append(btn);
+  }
+  const primary = buttons.find((b) => b && b.primary);
+  form.addEventListener("submit", (ev) => {
+    ev.preventDefault();
+    if (primary && primary.fn(api) !== false) api.close();
+  });
+  form.addEventListener("keydown", (ev) => {
+    if (ev.key === "Escape") { ev.preventDefault(); ev.stopPropagation(); api.close(); }
+  });
+  closeMenu();
+  hideTip();
+  document.body.append(ov);
+  if (onOpen) onOpen(api);
+  const first = form.querySelector("[autofocus]") || form.querySelector(".db input:not([type=checkbox]):not([type=color]), .db select")
+    || form.querySelector("button.primary") || form.querySelector(".actions button");
+  if (first) first.focus();
+  return api;
+}
+const modalOpen = () => Boolean(document.querySelector(".pc-ov"));
+function ask(title, html, yes) {  // 예/아니요 (PC QMessageBox.question)
+  openModal({title, body: `<div>${html}</div>`, buttons: ["|", {label: "예", primary: true, fn: () => { yes(); }}, {label: "아니요", cancel: true}]});
+}
+
+// 「다른 날짜로 이동…」: 작은 달력 (주 시작 요일 반영, 날짜를 더블클릭하면 바로 확인)
+function askDate(start, done) {
+  let view = start.slice(0, 8) + "01", sel = start;
+  const draw = (api) => {
+    const v = fromIso(view), ws = data.week_start, tk = iso(new Date());
+    const off = (pyWd(v) - ws + 7) % 7;
+    let h = `<div class="mhead"><button type="button" data-nav="-1" title="이전 달">◀</button>`
+      + `<b>${v.getFullYear()}년 ${v.getMonth() + 1}월</b><button type="button" data-nav="1" title="다음 달">▶</button></div><div class="mcal">`;
+    for (let i = 0; i < 7; i++) { const wd = (ws + i) % 7; h += `<span class="w ${wd === 6 ? "r" : wd === 5 ? "b" : ""}">${WEEKDAYS[wd]}</span>`; }
+    for (let i = 0; i < 42; i++) {
+      const d = new Date(v.getFullYear(), v.getMonth(), 1 - off + i), k = iso(d);
+      const cls = ["d", d.getMonth() !== v.getMonth() && "o", dayCls(k), k === tk && "t", k === sel && "s"].filter(Boolean).join(" ");
+      h += `<span class="${cls}" data-k="${k}">${d.getDate()}</span>`;
+    }
+    api.el.querySelector(".calbox").innerHTML = h + `</div><div class="muted" style="text-align:center">${fullLabel(sel)}</div>`;
+  };
+  openModal({title: "다른 날짜로 이동", body: `<div class="calbox"></div>`,
+    buttons: ["|", {label: "취소", cancel: true}, {label: "확인", primary: true, fn: () => { done(sel); }}],
+    onOpen: (api) => {
+      draw(api);
+      api.el.addEventListener("click", (ev) => {
+        const nav = ev.target.closest("[data-nav]");
+        if (nav) { view = addMonths(view, Number(nav.dataset.nav)); draw(api); return; }
+        const d = ev.target.closest(".mcal [data-k]");
+        if (d) { sel = d.dataset.k; view = sel.slice(0, 8) + "01"; draw(api); }
+      });
+      api.el.addEventListener("dblclick", (ev) => {
+        const d = ev.target.closest(".mcal [data-k]");
+        if (d) { sel = d.dataset.k; api.close(); done(sel); }
+      });
+    }});
+}
+
+const dateRow = (id, label, value) => `<div class="row"><span class="lb"><label for="${id}">${label}</label></span>`
+  + `<input type="date" id="${id}" value="${value || ""}"><span class="muted" data-wd="${id}"></span></div>`;
+function showWeekdays(api) {  // 날짜 칸 옆에 (요일)
+  for (const s of api.el.querySelectorAll("[data-wd]")) {
+    const v = api.el.querySelector(`#${s.dataset.wd}`).value;
+    s.textContent = v ? `(${wdOf(v)})` : "";
+  }
+}
+
+// 기간 설정 (PC PeriodDialog)
+function periodDialog(t) {
+  const e = t.e, start0 = t.date, end0 = e.p ? e.p[1] : addDays(start0, 1);
+  const body = `<div class="q">「${esc(e.t)}」</div>${dateRow("pd-a", "시작일", start0)}${dateRow("pd-b", "끝날", end0)}`
+    + `<div class="muted" id="pd-n"></div><div class="muted">기간 중 아무 날에서나 체크하면 일정 전체가 완료됩니다.<br>`
+    + `끝날까지 끝내지 못하면 다음 날부터 밀린 일에 나옵니다.</div>`;
+  const save = (api, single) => {
+    const a = api.el.querySelector("#pd-a").value, b = single ? a : api.el.querySelector("#pd-b").value;
+    if (!a || !b) { api.error("날짜를 고르세요."); return false; }
+    if (b < a) { api.error("끝날이 시작일보다 빠릅니다."); return false; }
+    addOps([["period", {item: t.id, start: a, end: b === a ? null : b}]]);
+  };
+  openModal({title: "기간 설정", body,
+    buttons: [...(e.p ? [{label: "하루 일정으로", fn: (api) => save(api, true)}] : []), "|",
+      {label: "취소", cancel: true}, {label: "확인", primary: true, fn: (api) => save(api, false)}],
+    onOpen: (api) => {
+      const upd = () => {
+        showWeekdays(api);
+        const a = api.el.querySelector("#pd-a").value, b = api.el.querySelector("#pd-b").value;
+        const n = a && b ? Math.round((fromIso(b) - fromIso(a)) / 864e5) : null;
+        api.el.querySelector("#pd-n").textContent = n === null ? "" : n > 0 ? `${n + 1}일` : n === 0 ? "하루 일정" : "끝날이 시작일보다 빠릅니다.";
+      };
+      api.el.addEventListener("input", upd);
+      upd();
+    }});
+}
+
+// 반복 설정 (PC RecurrenceDialog)
+function recurDialog(t) {
+  const e = t.e, rec = recOf(e), d0 = fromIso(t.date);
+  const rule = rec ? rec.rule : {type: "weekly", weekdays: [pyWd(d0)]};
+  const wds = rule.type === "weekly" ? rule.weekdays : [pyWd(d0)], day = rule.type === "monthly" ? rule.day : d0.getDate();
+  const start = rec ? rec.start : t.date, end = rec ? rec.end : null;
+  const order = Array.from({length: 7}, (_, i) => (data.week_start + i) % 7);
+  const types = [["daily", "매일"], ["weekdays", "평일 (월–금)"], ["weekly", "매주"], ["monthly", "매월"]];
+  const body = `<div class="q">「${esc(e.t)}」</div>`
+    + `<div class="row"><span class="lb"><label for="rd-type">종류</label></span><select id="rd-type">`
+    + types.map(([v, l]) => `<option value="${v}"${v === rule.type ? " selected" : ""}>${l}</option>`).join("") + `</select></div>`
+    + `<div class="row" id="rd-wrow"><span class="lb">요일</span><span class="wds">` + order.map((w) =>
+      `<label><input type="checkbox" value="${w}"${wds.includes(w) ? " checked" : ""}> ${WEEKDAYS[w]}</label>`).join("") + `</span></div>`
+    + `<div class="row" id="rd-drow"><span class="lb"><label for="rd-day">날짜</label></span>`
+    + `<input type="number" id="rd-day" min="1" max="31" value="${day}" style="width:64px"> 일</div>`
+    + `<div class="muted" id="rd-dnote">31일처럼 없는 날짜는 그 달의 말일에 표시됩니다.</div>`
+    + dateRow("rd-start", "시작일", start)
+    + `<div class="row"><span class="lb"><label class="ck"><input type="checkbox" id="rd-hasend"${end ? " checked" : ""}> 종료일</label></span>`
+    + `<input type="date" id="rd-end" value="${end || start}"><span class="muted" data-wd="rd-end"></span></div>`;
+  const save = (api) => {
+    const f = (s) => api.el.querySelector(s);
+    const type = f("#rd-type").value, r = {type};
+    if (type === "weekly") r.weekdays = [...api.el.querySelectorAll(".wds input:checked")].map((x) => Number(x.value)).sort();
+    if (type === "monthly") r.day = Number(f("#rd-day").value);
+    const s = f("#rd-start").value, en = f("#rd-hasend").checked ? f("#rd-end").value : null;
+    // PC recurrence.validate와 같은 검사·문구
+    if (type === "weekly" && !r.weekdays.length) { api.error("매주 반복은 요일을 하나 이상 선택해야 합니다."); return false; }
+    if (type === "monthly" && !(Number.isInteger(r.day) && r.day >= 1 && r.day <= 31)) { api.error("매월 반복 날짜는 1–31 사이여야 합니다."); return false; }
+    if (!s) { api.error("시작일은 필수입니다."); return false; }
+    if (en !== null && (!en || en < s)) { api.error("종료일이 시작일보다 빠릅니다."); return false; }
+    addOps([["recur", {item: t.id, rule: r, start: s, end: en}]]);
+  };
+  openModal({title: "반복 설정", body,
+    buttons: [...(e.r ? [{label: "이 날짜 이후 반복 중지", fn: () => { addOps([["stoprecur", {item: t.id}]]); }}] : []), "|",
+      {label: "취소", cancel: true}, {label: "확인", primary: true, fn: save}],
+    onOpen: (api) => {
+      const f = (s) => api.el.querySelector(s);
+      const upd = () => {
+        const type = f("#rd-type").value;
+        f("#rd-wrow").classList.toggle("hidden", type !== "weekly");
+        f("#rd-drow").classList.toggle("hidden", type !== "monthly");
+        f("#rd-dnote").classList.toggle("hidden", type !== "monthly");
+        f("#rd-end").disabled = !f("#rd-hasend").checked;
+        showWeekdays(api);
+      };
+      api.el.addEventListener("input", upd);
+      api.el.addEventListener("change", upd);
+      upd();
+    }});
+}
+
+// 섹션 편집 (일 보기 섹션 머리 더블클릭, PC SectionDialog)
+function sectionDialog(sec) {
+  if (!sec || !canEdit()) return;
+  const body = `<div class="row"><span class="lb"><label for="sd-name">이름</label></span>`
+    + `<input id="sd-name" maxlength="40" value="${esc(sec.name)}" style="flex:1"></div>`
+    + `<div class="row"><span class="lb"><label for="sd-color">색</label></span>`
+    + `<input type="color" id="sd-color" value="${esc(sec.color)}"><span class="muted" id="sd-hex"></span></div>`;
+  openModal({title: "섹션 편집", body, buttons: ["|", {label: "취소", cancel: true}, {label: "확인", primary: true, fn: (api) => {
+    const name = api.el.querySelector("#sd-name").value.trim(), color = api.el.querySelector("#sd-color").value.toUpperCase();
+    if ((name && name !== sec.name) || color !== sec.color.toUpperCase()) {
+      addOps([["section", {section: sec.id, name: name || sec.name, color}]]);
+    }
+  }}], onOpen: (api) => {
+    const hex = () => { api.el.querySelector("#sd-hex").textContent = api.el.querySelector("#sd-color").value.toUpperCase(); };
+    api.el.addEventListener("input", hex);
+    hex();
+  }});
+}
+
+// 설정 (PC 설정 창에서 브라우저로 바꿀 수 있는 것: 주 시작 요일, 테마(이 브라우저), 섹션)
+function settingsDialog(tab) {
+  const ed = canEdit();
+  const rows = data.sections.map((s) => ({id: s.id, name: s.name, color: s.color, n: s.n || 0, rn: s.rn || 0, isNew: false}));
+  const deleted = [];  // {row, to} 누른 순서대로 (확인을 눌러야 적용)
+  const theme = lsGet(THEME_STORE) || "system";
+  const off = ed ? "" : " disabled";
+  const body = `<div class="tabs"><button type="button" data-tab="0">일반</button><button type="button" data-tab="1">화면</button></div>`
+    + `<div data-pane="0" class="db"><div class="grp"><b>일반</b>`
+    + `<div class="row"><span class="lb"><label for="st-ws">주 시작 요일</label></span><select id="st-ws"${off}>`
+    + `<option value="6"${data.week_start === 6 ? " selected" : ""}>일요일</option>`
+    + `<option value="0"${data.week_start === 0 ? " selected" : ""}>월요일</option></select></div></div>`
+    + `<div class="muted">Windows 시작 시 자동 실행, 유휴 알림은 PC 프로그램 설정에서 바꿉니다.</div></div>`
+    + `<div data-pane="1" class="db"><div class="grp"><b>화면</b>`
+    + `<div class="row"><span class="lb"><label for="st-theme">테마</label></span><select id="st-theme">`
+    + [["system", "기기 설정 따르기"], ["light", "라이트"], ["dark", "다크"]].map(([v, l]) =>
+      `<option value="${v}"${v === theme ? " selected" : ""}>${l}</option>`).join("") + `</select>`
+    + `<span class="muted">이 브라우저에만</span></div></div>`
+    + `<div class="grp"><b>섹션</b><div id="st-rows" class="db"></div>`
+    + `<div><button type="button" id="st-add"${off}>+ 섹션 추가</button></div></div>`
+    + `<div class="muted">창 불투명도, 모바일, 데이터 설정은 PC 프로그램 설정에서 바꿉니다.</div></div>`
+    + (ed ? "" : `<div class="muted">이 브라우저는 수정 연결이 안 되어 있어 테마만 바꿀 수 있어요.</div>`);
+  let api;
+  const drawRows = (focus) => {
+    const box = api.el.querySelector("#st-rows");
+    box.innerHTML = rows.map((r, i) => `<div class="secrow" data-i="${i}">`
+      + `<button type="button" data-a="up" title="위로"${!ed || i === 0 ? " disabled" : ""}>▲</button>`
+      + `<button type="button" data-a="down" title="아래로"${!ed || i === rows.length - 1 ? " disabled" : ""}>▼</button>`
+      + `<input type="text" maxlength="40" placeholder="섹션 이름" value="${esc(r.name)}"${off}>`
+      + `<input type="color" value="${esc(r.color)}"${off}>`
+      + `<button type="button" data-a="del"${!ed || rows.length <= 1 ? " disabled" : ""}>삭제</button></div>`).join("");
+    api.el.querySelector("#st-add").disabled = !ed || rows.length >= 8;
+    if (focus) {
+      const el = box.querySelector(`.secrow[data-i="${focus.i}"] ${focus.sel}`);
+      const target = el && !el.disabled ? el : box.querySelector(`.secrow[data-i="${focus.i}"] input[type=text]`);
+      if (target) target.focus();
+    }
+  };
+  const removeRow = (i) => {
+    const r = rows[i], other = rows.find((x) => x !== r);
+    const inN = deleted.filter((d) => d.to === r).reduce((a, d) => [a[0] + d.row.n + (d.inN || 0), a[1] + d.row.rn + (d.inR || 0)], [0, 0]);
+    const n = r.n + inN[0], rn = r.rn + inN[1];
+    const done = (to) => { deleted.push({row: r, to, inN: inN[0], inR: inN[1]}); rows.splice(rows.indexOf(r), 1); drawRows(); };
+    if (!n && !rn) { done(null); return; }
+    openModal({title: "섹션 삭제",
+      body: `<div>「${esc(r.name || "섹션")}」 섹션에 할 일 ${n}개, 반복 규칙 ${rn}개가 있습니다. 어떻게 할까요?</div>`
+        + `<div class="muted">설정 창에서 확인을 눌러야 실제로 적용됩니다.</div>`,
+      buttons: [{label: `「${other.name || "섹션"}」로 옮기기`, fn: () => done(other)}, {label: "함께 삭제", fn: () => done(null)},
+        "|", {label: "취소", cancel: true}]});
+  };
+  const save = () => {
+    lsSet(THEME_STORE, api.el.querySelector("#st-theme").value === "system" ? null : api.el.querySelector("#st-theme").value);
+    applyTheme();
+    if (!ed) { render(); return; }
+    const ops = [];
+    // 1) 새 섹션 (지운 새 섹션은 다른 섹션 항목을 받았을 때만 만들었다가 지운다)
+    const needed = new Set(deleted.filter((d) => d.to && d.to.isNew).map((d) => d.to.id));
+    for (const r of [...rows, ...deleted.map((d) => d.row)]) {
+      if (r.isNew && (rows.includes(r) || needed.has(r.id))) ops.push(["addsection", {section: r.id, name: r.name.trim(), color: r.color.toUpperCase()}]);
+    }
+    // 2) 삭제 (누른 순서: 앞에서 옮겨 둔 섹션을 다시 지우면 그 항목도 다음 섹션으로 간다)
+    for (const d of deleted) {
+      if (!d.row.isNew || needed.has(d.row.id)) ops.push(["delsection", {section: d.row.id, move_to: d.to ? d.to.id : null}]);
+    }
+    // 3) 이름·색
+    for (const r of rows) {
+      const s = !r.isNew && data.sections.find((x) => x.id === r.id);
+      if (s && ((r.name.trim() && r.name.trim() !== s.name) || r.color.toUpperCase() !== s.color.toUpperCase())) {
+        ops.push(["section", {section: r.id, name: r.name.trim() || s.name, color: r.color.toUpperCase()}]);
+      }
+    }
+    // 4) 순서
+    const gone = new Set(deleted.map((d) => d.row.id));
+    const now = data.sections.map((s) => s.id).filter((id) => !gone.has(id)).concat(rows.filter((r) => r.isNew).map((r) => r.id));
+    if (rows.map((r) => r.id).join() !== now.join()) ops.push(["sectionorder", {ids: rows.map((r) => r.id)}]);
+    // 5) 주 시작 요일 (PC 설정)
+    const ws = Number(api.el.querySelector("#st-ws").value);
+    if (ws !== data.week_start) ops.push(["setting", {key: "week_start", value: ws}]);
+    if (ops.length) addOps(ops); else render();
+  };
+  api = openModal({title: "설정", body, buttons: ["|", {label: "취소", cancel: true}, {label: "확인", primary: true, fn: save}],
+    onOpen: (a) => {
+      api = a;
+      const showTab = (n) => {
+        for (const b of a.el.querySelectorAll("[data-tab]")) b.classList.toggle("on", b.dataset.tab === String(n));
+        for (const p of a.el.querySelectorAll("[data-pane]")) p.classList.toggle("hidden", p.dataset.pane !== String(n));
+      };
+      a.el.addEventListener("click", (ev) => {
+        const t = ev.target.closest("[data-tab]");
+        if (t) { showTab(Number(t.dataset.tab)); return; }
+        if (ev.target.closest("#st-add") && rows.length < 8) {
+          const used = new Set(rows.map((r) => r.color.toLowerCase()));
+          rows.push({id: newId(), name: "", color: SECTION_COLORS.find((c) => !used.has(c.toLowerCase())) || SECTION_COLORS[rows.length % 8],
+            n: 0, rn: 0, isNew: true});
+          drawRows({i: rows.length - 1, sel: "input[type=text]"});
+          return;
+        }
+        const btn = ev.target.closest(".secrow button");
+        if (!btn) return;
+        const i = Number(btn.closest(".secrow").dataset.i);
+        if (btn.dataset.a === "del") { removeRow(i); return; }
+        const j = btn.dataset.a === "up" ? i - 1 : i + 1;
+        [rows[i], rows[j]] = [rows[j], rows[i]];
+        drawRows({i: j, sel: `[data-a="${btn.dataset.a}"]`});  // 누른 버튼에 포커스 (끝에 닿으면 이름 칸)
+      });
+      a.el.addEventListener("input", (ev) => {
+        const row = ev.target.closest(".secrow");
+        if (!row) return;
+        const r = rows[Number(row.dataset.i)];
+        if (ev.target.type === "color") r.color = ev.target.value; else r.name = ev.target.value;
+      });
+      drawRows();
+      showTab(tab || 0);
+    }});
+}
+
+// ---------------- 우클릭 메뉴 (PC 프로그램 메뉴 + 브라우저라서 더한 메뉴: 섹션, 날짜, 빈 곳)
+function itemMenu(ts, overdue) {
+  const multi = ts.length > 1, one = ts[0], allStar = ts.every((t) => t.e.star);
+  const today = iso(new Date()), tomorrow = addDays(today, 1);
   const items = [];
-  if (multi) items.push({label: `할 일 ${es.length}개 선택됨`, off: true}, "-");
-  items.push(
-    {label: allStar ? "중요 표시 해제" : "중요 표시 ★", fn: () => addOps(es.map((e) => ["star", {item: e.id, star: !allStar}]))},
+  if (multi) items.push({label: `할 일 ${ts.length}개 선택됨`, off: true}, "-");
+  if (overdue) items.push({label: "오늘로 옮기기", fn: () => moveTargets(ts, () => ({date: today}))},
+    {label: "완료", fn: () => addOps(ts.map((t) => ["done", {item: t.id, done: true}]))}, "-");
+  items.push({label: allStar ? "중요 표시 해제" : "중요 표시 ★", fn: () => addOps(ts.map((t) => ["star", {item: t.id, star: !allStar}]))}, "-");
+  if (!overdue) items.push({label: "수정", key: "F2", off: multi, fn: () => startEdit(one.id)});
+  items.push({label: "삭제", key: overdue ? "" : "Delete", fn: () => deleteTargets(ts)}, "-",
+    {label: "내일로 옮기기", off: ts.every((t) => t.date === tomorrow), fn: () => moveTargets(ts, () => ({date: tomorrow}))},
+    {label: "전날로 옮기기", fn: () => moveTargets(ts, (t) => ({date: addDays(t.date, -1)}))},
+    {label: "다른 날짜로 이동…", fn: () => askDate(one.date, (k) => moveTargets(ts, () => ({date: k})))},
+    {label: "섹션 이동", sub: data.sections.map((s) => ({label: s.name, color: s.color, off: ts.every((t) => t.e.s === s.id),
+      fn: () => moveTargets(ts, (t) => ({date: t.date, section: s.id}))}))},
     "-",
-    {label: "수정", key: "F2", off: multi, fn: () => startEdit(es[0].id)},
-    {label: "삭제", key: "Delete", fn: () => deleteIds(ids)},
-    "-",
-    {label: "내일로 옮기기", off: es.every((e) => startOf(e) === tomorrow), fn: () => moveIds(ids, () => ({date: tomorrow}))},
-    {label: "전날로 옮기기", fn: () => moveIds(ids, (e) => ({date: addDays(startOf(e), -1)}))},
-    {label: "다른 날짜로 이동…", fn: () => askDate(startOf(es[0]), (k) => moveIds(ids, () => ({date: k})))},
-    {label: "섹션 이동", sub: snap.sections.map((s) => ({label: s.name, color: s.color, off: es.every((e) => e.s === s.id),
-      fn: () => moveIds(ids, (e) => ({date: startOf(e), section: s.id}))}))},
-    "-",
-    {label: "기간 설정…", off: true, tip: pcOnly},
-    {label: "반복 설정…", off: true, tip: pcOnly});
+    {label: "기간 설정…", off: multi || one.e.r, fn: () => periodDialog(one)},
+    {label: "반복 설정…", off: multi || Boolean(one.e.p), fn: () => recurDialog(one)});
+  return items;
+}
+function sectionMenu(sid) {
+  const sec = data.sections.find((s) => s.id === sid);
+  return [{label: "할 일 추가", key: "N", fn: () => focusAdd(sid)}, {label: "섹션 편집…", fn: () => sectionDialog(sec)},
+    "-", {label: "섹션 설정…", fn: () => settingsDialog(1)}];
+}
+function generalMenu() {
+  return [{label: "오늘", key: "T", fn: goToday}, "-",
+    {label: "년 보기", check: pc.mode === "year", fn: () => pcGo("year")},
+    {label: "월 보기", check: pc.mode === "month", fn: () => pcGo("month")},
+    {label: "일 보기", check: pc.mode === "day", fn: () => pcGo("day")}, "-",
+    {label: "다시 받기", fn: () => load()}, {label: "설정…", fn: () => settingsDialog(0)}, {label: "잠그기", fn: lockNow}];
+}
+function dateMenu(k, withMonth) {
+  return [{label: "이 날 보기", fn: () => pcGo("day", k)},
+    {label: "이 날에 할 일 추가", key: "N", off: !canEdit(), fn: () => { pcGo("day", k); focusAdd(); }},
+    ...(withMonth ? [{label: "이 달 보기", fn: () => pcGo("month", k)}] : []), "-", ...generalMenu()];
+}
+
+function openMenu(x, y, items) {
   const m = $("#pc-menu");
   m.innerHTML = "";
   m.append(buildMenu(items));
@@ -1570,7 +2050,6 @@ function openMenu(x, y, ids) {
   m.style.left = `${Math.max(4, Math.min(x, innerWidth - w - 4))}px`;
   m.style.top = `${Math.max(4, Math.min(y, innerHeight - h - 4))}px`;
 }
-
 function buildMenu(items) {
   const box = document.createElement("div");
   box.className = "menu";
@@ -1578,8 +2057,8 @@ function buildMenu(items) {
     if (it === "-") { box.insertAdjacentHTML("beforeend", `<div class="msep"></div>`); continue; }
     const row = document.createElement("div");
     row.className = "mr" + (it.off ? " dis" : "") + (it.sub ? " sub" : "");
-    row.innerHTML = (it.color ? `<span style="color:${it.color}">●</span>` : "") + `<span>${esc(it.label)}</span>`
-      + (it.key ? `<span class="k">${it.key}</span>` : "");
+    row.innerHTML = (it.check ? `<span class="ck">✓</span>` : "") + (it.color ? `<span style="color:${it.color}">●</span>` : "")
+      + `<span>${esc(it.label)}</span>` + (it.key ? `<span class="k">${it.key}</span>` : "");
     if (it.tip) row.title = it.tip;
     if (it.sub) {
       const child = buildMenu(it.sub);
@@ -1598,23 +2077,6 @@ function buildMenu(items) {
   return box;
 }
 function closeMenu() { $("#pc-menu").classList.add("hidden"); $("#pc-menu").innerHTML = ""; }
-
-// 「다른 날짜로 이동…」
-function askDate(start, done) {
-  pc.dateDone = done;
-  $("#pc-date").value = start;
-  $("#pc-dlg").classList.remove("hidden");
-  $("#pc-date").focus();
-}
-function closeDlg() { $("#pc-dlg").classList.add("hidden"); pc.dateDone = null; }
-$("#pc-dlg-form").addEventListener("submit", (ev) => {
-  ev.preventDefault();
-  const k = $("#pc-date").value, done = pc.dateDone;
-  closeDlg();
-  if (k && done) done(k);
-});
-$("#pc-dlg-cancel").onclick = closeDlg;
-$("#pc-dlg").addEventListener("mousedown", (ev) => { if (ev.target.id === "pc-dlg") closeDlg(); });
 
 // ---------------- 툴팁: 날짜 칸(그날 항목 전체), 기간·반복 항목
 function dayTip(k) {
@@ -1642,14 +2104,31 @@ function showTip(el, x, y) {
   t.style.top = `${y + 20 + t.offsetHeight > innerHeight ? y - t.offsetHeight - 8 : y + 20}px`;
 }
 
+// ---------------- 드래그로 옮기기 (PC와 같다: 고른 항목을 보이는 순서대로, 놓은 줄은 항목 세로 가운데 기준)
+function dropSpot(ev) {
+  const card = ev.target.closest && ev.target.closest("#pc .card");
+  if (!card) return null;
+  const ul = card.querySelector(".cl"), rows = [...ul.querySelectorAll("li[data-id]")];
+  let index = rows.length;
+  for (let i = 0; i < rows.length; i++) {
+    const r = rows[i].getBoundingClientRect();
+    if (ev.clientY < r.top + r.height / 2) { index = i; break; }
+  }
+  return {ul, rows, index, section: card.dataset.s};
+}
+function clearDrop() {
+  for (const el of document.querySelectorAll("#pc .drop-before, #pc .drop-end")) el.classList.remove("drop-before", "drop-end");
+}
+
 // ---------------- 마우스·키보드
 const pcv = $("#pc-view");
 $("#pc-prev").onclick = () => pcStep(-1);
 $("#pc-next").onclick = () => pcStep(1);
-$("#pc-today").onclick = () => { pc.cur = iso(new Date()); closeMenu(); render(); };
+$("#pc-today").onclick = goToday;
 for (const b of document.querySelectorAll("#pc-modes button")) b.onclick = () => pcGo(b.dataset.m);
 $("#pc-reload").onclick = () => load();
-$("#pc-lock").onclick = () => { closeMenu(); forgetKey(); pc.cur = null; showLock(""); };
+$("#pc-settings").onclick = () => settingsDialog(0);
+$("#pc-lock").onclick = lockNow;
 
 pcv.addEventListener("click", (ev) => {
   if (pc.mode === "year") {
@@ -1669,7 +2148,7 @@ pcv.addEventListener("click", (ev) => {
   }
   if (ev.target.closest(".odp .tg")) { lsSet(PC_FOLD_STORE, lsGet(PC_FOLD_STORE) === "1" ? null : "1"); render(); return; }
   if (!canEdit()) return;
-  if (ev.target.closest(".odp .all")) { moveIds(data.overdue.map((e) => e.id), () => ({date: iso(new Date())})); return; }
+  if (ev.target.closest(".odp .all")) { moveTargets(data.overdue.map((e) => ({id: e.id, e})), () => ({date: iso(new Date())})); return; }
   const li = ev.target.closest("li[data-id]");
   const e = li && findEntry(li.dataset.id);
   if (!e) return;
@@ -1680,6 +2159,7 @@ pcv.addEventListener("click", (ev) => {
 });
 
 pcv.addEventListener("mousedown", (ev) => {
+  pc.single = null;
   if (ev.button !== 0 || pc.mode !== "day") return;
   const li = ev.target.closest(".cl li[data-id]");
   if (!li || ev.target.closest(".cbx, .pst, .ined")) return;
@@ -1690,7 +2170,10 @@ pcv.addEventListener("mousedown", (ev) => {
   } else if (ev.ctrlKey || ev.metaKey) {
     if (pc.chosen.has(id)) pc.chosen.delete(id); else pc.chosen.add(id);
     pc.anchor = id;
-    pc.dragSel = true;  // 누른 채 끌면 지나간 항목을 더한다
+    pc.dragSel = true;  // 누른 채 끌면 지나간 항목을 더한다 (옮기지 않는다)
+  } else if (pc.chosen.has(id) && pc.chosen.size > 1) {
+    pc.single = id;  // 고른 것 중 하나: 끌면 고른 것 전체를 옮기고, 그냥 떼면 그것 하나만 고른다
+    pc.anchor = id;
   } else {
     pc.chosen = new Set([id]);
     pc.anchor = id;
@@ -1705,7 +2188,7 @@ pcv.addEventListener("mouseover", (ev) => {
   const el = ev.target.closest("[data-d], [data-tip]");
   if (el === pc.tipEl) return;
   hideTip();
-  if (!el || pc.dragSel) return;
+  if (!el || pc.dragSel || pc.drag) return;
   pc.tipEl = el;
   const x = ev.clientX, y = ev.clientY;
   tipTimer = setTimeout(() => showTip(el, x, y), 600);
@@ -1714,20 +2197,10 @@ pcv.addEventListener("mouseleave", hideTip);
 
 pcv.addEventListener("dblclick", (ev) => {
   if (pc.mode !== "day" || !canEdit()) return;
+  const head = ev.target.closest(".chead");
+  if (head) { sectionDialog(data.sections.find((s) => s.id === head.closest(".card").dataset.s)); return; }
   const li = ev.target.closest(".cl li[data-id]");
   if (li && !ev.target.closest(".cbx, .pst, .ined")) startEdit(li.dataset.id);
-});
-
-pcv.addEventListener("contextmenu", (ev) => {
-  if (pc.mode !== "day") return;
-  const li = ev.target.closest(".cl li[data-id]");
-  if (!li || ev.target.closest(".ined")) return;
-  ev.preventDefault();
-  hideTip();
-  if (!canEdit()) return;
-  const id = li.dataset.id;
-  if (!pc.chosen.has(id)) { pc.chosen = new Set([id]); pc.anchor = id; markChosen(); }  // 고르지 않은 항목은 그것만
-  openMenu(ev.clientX, ev.clientY, chosenIds());
 });
 
 pcv.addEventListener("submit", (ev) => {  // 섹션 입력란 Enter: 그 섹션에 추가하고 이어서 입력
@@ -1739,6 +2212,53 @@ pcv.addEventListener("submit", (ev) => {  // 섹션 입력란 Enter: 그 섹션�
   inp.value = "";
   addOps([["add", {item: newId(), date: pc.cur, section: form.dataset.s, text}]]);
 });
+pcv.addEventListener("focusin", (ev) => { if (ev.target.matches(".addin")) pc.lastSec = ev.target.dataset.s; });
+
+pcv.addEventListener("dragstart", (ev) => {
+  const li = ev.target.closest && ev.target.closest(".cl li[data-id]");
+  if (!li || !canEdit() || pc.editing || pc.dragSel || ev.ctrlKey || ev.metaKey) { ev.preventDefault(); return; }
+  pc.single = null;
+  hideTip();
+  if (!pc.chosen.has(li.dataset.id)) { pc.chosen = new Set([li.dataset.id]); pc.anchor = li.dataset.id; markChosen(); }
+  const ids = chosenIds();
+  pc.drag = {ids};
+  ev.dataTransfer.effectAllowed = "move";
+  ev.dataTransfer.setData("text/plain", ids.map((id) => (findEntry(id) || {}).t || "").join("\n"));
+  if (ids.length > 1) {
+    const g = document.createElement("div");
+    g.className = "dragimg";
+    g.textContent = `할 일 ${ids.length}개`;
+    document.body.append(g);
+    ev.dataTransfer.setDragImage(g, 12, 12);
+    setTimeout(() => g.remove(), 0);
+  }
+});
+pcv.addEventListener("dragover", (ev) => {
+  if (!pc.drag) return;
+  const spot = dropSpot(ev);
+  clearDrop();
+  if (!spot) return;
+  ev.preventDefault();
+  ev.dataTransfer.dropEffect = "move";
+  if (spot.index < spot.rows.length) spot.rows[spot.index].classList.add("drop-before");
+  else spot.ul.classList.add("drop-end");
+});
+pcv.addEventListener("drop", (ev) => {
+  const spot = pc.drag && dropSpot(ev);
+  clearDrop();
+  if (!spot) return;
+  ev.preventDefault();
+  const ids = pc.drag.ids;
+  pc.drag = null;
+  const shown = spot.rows.map((r) => r.dataset.id);
+  if (ids.every((id) => shown.includes(id))) {  // 같은 목록에서 제자리면 아무것도 하지 않는다
+    const before = shown.slice(0, spot.index).filter((id) => ids.includes(id)).length;
+    const rest = shown.filter((id) => !ids.includes(id)), pos = spot.index - before;
+    if (rest.slice(0, pos).concat(ids, rest.slice(pos)).join() === shown.join()) return;
+  }
+  addOps([["place", {items: ids, date: pc.cur, section: spot.section, index: spot.index}]]);
+});
+document.addEventListener("dragend", () => { pc.drag = null; clearDrop(); });
 
 pcv.addEventListener("wheel", (ev) => {  // 월·년 보기: 휠 한 칸에 한 달(해)
   if (pc.mode === "day" || ev.ctrlKey) return;
@@ -1752,53 +2272,90 @@ pcv.addEventListener("wheel", (ev) => {  // 월·년 보기: 휠 한 칸에 한 
   }
 }, {passive: false});
 
+// 우클릭: 페이지 어디서나 브라우저 메뉴 대신 그 자리에 맞는 메뉴 (글 입력 칸만 브라우저 메뉴: 붙여넣기 등)
+document.addEventListener("contextmenu", (ev) => {
+  if (!PC || $("#main").classList.contains("hidden")) return;
+  const t = ev.target;
+  if (t.closest("input, textarea, select")) return;
+  ev.preventDefault();
+  hideTip();
+  if (t.closest("#pc-menu, .pc-ov") || !t.closest("#pc")) return;
+  const ed = canEdit();
+  let items;
+  const li = t.closest(".cl li[data-id]"), od = t.closest(".odp li[data-id]"), card = t.closest(".card");
+  if (li && pc.mode === "day") {
+    const id = li.dataset.id;
+    if (!pc.chosen.has(id)) { pc.chosen = new Set([id]); pc.anchor = id; markChosen(); }  // 고르지 않은 항목은 그것만
+    items = ed ? itemMenu(dayTargets(chosenIds()), false) : generalMenu();
+  } else if (od) {
+    const ot = overdueTarget(od.dataset.id);
+    items = ed && ot ? itemMenu([ot], true) : generalMenu();
+  } else if (card) {
+    items = ed ? sectionMenu(card.dataset.s) : generalMenu();
+  } else if (t.closest(".mc[data-d]")) {
+    items = dateMenu(t.closest(".mc").dataset.d, false);
+  } else if (t.closest(".ym .d[data-d]")) {
+    items = dateMenu(t.closest(".d").dataset.d, true);
+  } else if (t.closest(".ym")) {
+    const c = fromIso(pc.cur), m = Number(t.closest(".ym").dataset.m);
+    items = [{label: "이 달 보기", fn: () => pcGo("month", c.getMonth() === m ? pc.cur : iso(new Date(c.getFullYear(), m, 1)))}, "-", ...generalMenu()];
+  } else {
+    items = generalMenu();
+  }
+  openMenu(ev.clientX, ev.clientY, items);
+});
+
 document.addEventListener("mousedown", (ev) => {
   if (!PC) return;
   if (!ev.target.closest("#pc-menu")) closeMenu();
   hideTip();
   if (ev.button === 3 || ev.button === 4) { ev.preventDefault(); return; }  // 마우스 뒤로/앞으로: 페이지를 떠나지 않게
   if (ev.button !== 0 || ev.ctrlKey || ev.metaKey || ev.shiftKey) return;
-  if (!ev.target.closest("#pc-menu, #pc-dlg, .cl li[data-id], .ined")) clearChosen();  // 목록 밖·빈 곳: 선택 풀기
+  if (!ev.target.closest("#pc-menu, .pc-ov, .cl li[data-id], .ined")) clearChosen();  // 목록 밖·빈 곳: 선택 풀기
 });
 document.addEventListener("mouseup", (ev) => {
   if (!PC) return;
   pc.dragSel = false;
+  if (pc.single && ev.button === 0) { pc.chosen = new Set([pc.single]); pc.single = null; markChosen(); }
   if (ev.button === 3 || ev.button === 4) {  // 일 → 월 → 년 / 년 → 월 → 일
     ev.preventDefault();
-    if (!$("#main").classList.contains("hidden")) { if (ev.button === 3) goUp(); else goDown(); }
+    if (!$("#main").classList.contains("hidden") && !modalOpen()) { if (ev.button === 3) goUp(); else goDown(); }
   }
 });
 document.addEventListener("scroll", () => { if (PC) { closeMenu(); hideTip(); } }, true);
 
 document.addEventListener("keydown", (ev) => {
   if (!PC || $("#main").classList.contains("hidden")) return;
-  if (ev.key === "Escape") {
-    if (!$("#pc-dlg").classList.contains("hidden")) { closeDlg(); return; }
-    if (!$("#pc-menu").classList.contains("hidden")) { closeMenu(); return; }
+  if (modalOpen()) {  // 대화상자 밖에 포커스가 있어도 Esc로 닫는다
+    if (ev.key === "Escape") { const all = document.querySelectorAll(".pc-ov"); all[all.length - 1].remove(); }
+    return;
   }
-  if (!$("#pc-dlg").classList.contains("hidden") || ev.target.closest("input, textarea, select, button")) return;
-  const ctrl = ev.ctrlKey || ev.metaKey, arrow = ev.key === "ArrowLeft" || ev.key === "ArrowRight";
+  if (ev.key === "Escape" && !$("#pc-menu").classList.contains("hidden")) { closeMenu(); return; }
+  if (ev.target.closest("input, textarea, select, button")) return;
+  const ctrl = ev.ctrlKey || ev.metaKey, arrow = ev.key === "ArrowLeft" || ev.key === "ArrowRight", plain = !ctrl && !ev.altKey;
   if (ctrl && !ev.altKey && arrow) { ev.preventDefault(); pcStep(ev.key === "ArrowLeft" ? -1 : 1); return; }
   if (ev.altKey && !ctrl && arrow) { ev.preventDefault(); if (ev.key === "ArrowLeft") goUp(); else goDown(); return; }
-  if (ctrl && ev.key.toLowerCase() === "m") { ev.preventDefault(); pcGo(pc.mode === "day" ? "month" : "day"); return; }
+  if (ctrl && ev.code === "KeyM") { ev.preventDefault(); pcGo(pc.mode === "day" ? "month" : "day"); return; }
+  if (plain && !ev.shiftKey && ev.code === "KeyT") { ev.preventDefault(); goToday(); return; }  // PC Ctrl+T
+  if (plain && !ev.shiftKey && ev.code === "KeyN") { ev.preventDefault(); focusAdd(); return; }  // PC Ctrl+N
   if (pc.mode !== "day") return;
   const anchor = pc.anchor && rowOf(pc.anchor);
-  if (ctrl && ev.key.toLowerCase() === "a" && anchor) {  // 그 섹션 전체
+  if (ctrl && ev.code === "KeyA" && anchor) {  // 그 섹션 전체
     ev.preventDefault();
     for (const li of anchor.parentElement.querySelectorAll("li[data-id]")) pc.chosen.add(li.dataset.id);
     markChosen();
     return;
   }
-  if ((ev.key === "ArrowUp" || ev.key === "ArrowDown") && !ctrl && !ev.shiftKey && !ev.altKey && anchor) {
+  if ((ev.key === "ArrowUp" || ev.key === "ArrowDown") && plain && !ev.shiftKey && anchor) {
     const sib = ev.key === "ArrowUp" ? anchor.previousElementSibling : anchor.nextElementSibling;
     ev.preventDefault();
     if (sib) { pc.chosen = new Set([sib.dataset.id]); pc.anchor = sib.dataset.id; markChosen(); sib.scrollIntoView({block: "nearest"}); }
     return;
   }
   const ids = chosenIds();
-  if (!ids.length || !canEdit() || ctrl || ev.altKey) return;
-  if (ev.key === " ") { ev.preventDefault(); toggleDone(ids); }
-  else if (ev.key === "Delete") { ev.preventDefault(); deleteIds(ids); }
+  if (!ids.length || !canEdit() || !plain) return;
+  if (ev.key === " ") { ev.preventDefault(); toggleDone(dayTargets(ids)); }
+  else if (ev.key === "Delete") { ev.preventDefault(); deleteTargets(dayTargets(ids)); }
   else if (ev.key === "F2" && ids.length === 1) { ev.preventDefault(); startEdit(ids[0]); }
 });
 
