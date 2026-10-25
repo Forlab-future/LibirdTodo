@@ -11,6 +11,7 @@
 <link rel="apple-touch-icon" href="icon-192.png">
 <style>
 :root {
+  color-scheme: light dark;  /* 날짜·시각 칸 같은 기본 입력도 폰 테마를 따른다 */
   --bg: #F4F5F7; --card: #FFFFFF; --border: #E2E4E8; --text: #202327; --muted: #8A9099;
   --accent: #4C8BF5; --red: #E5484D; --blue: #2F6FED; --star: #F2A900;
   --out: #F9FAFB; --today: #EAF2FF; --sel: #DCE8FD; --overdue-bg: #FFF7F7; --overdue: #B4232A;
@@ -131,6 +132,35 @@ form.add input:focus { outline: none; border-style: solid; border-color: var(--a
 #toast { position: fixed; left: 50%; bottom: calc(24px + env(safe-area-inset-bottom)); transform: translateX(-50%);
   z-index: 20; max-width: 90vw; padding: 9px 16px; border-radius: 18px; background: #303338; color: #fff;
   font-size: 14px; text-align: center; box-shadow: 0 4px 14px rgba(0, 0, 0, .25); }
+footer a { color: var(--accent); }
+
+/* 안드로이드 앱에서만: 알림·앱 설정 */
+#app-sheet { position: fixed; inset: 0; z-index: 10; background: rgba(0, 0, 0, .4); display: flex; align-items: flex-end; }
+#app-sheet .panel { width: 100%; max-width: 560px; max-height: 88vh; overflow-y: auto; margin: 0 auto; background: var(--card);
+  border-radius: 14px 14px 0 0; padding: 14px 14px calc(16px + env(safe-area-inset-bottom));
+  display: flex; flex-direction: column; gap: 10px; }
+#app-sheet h3 { margin: 4px 2px 0; font-size: 15px; }
+.sheet-head { display: flex; align-items: center; justify-content: space-between; }
+.sheet-head b { font-size: 17px; }
+.perm { display: flex; align-items: center; gap: 8px; padding: 9px 11px; border-radius: 10px; font-size: 13px;
+  background: var(--overdue-bg); color: var(--overdue); }
+.perm span { flex: 1; }
+.alarm { border: 1px solid var(--border); border-radius: 12px; padding: 10px; display: flex; flex-direction: column; gap: 9px; }
+.alarm.off { opacity: .5; }
+.alarm .top { display: flex; align-items: center; gap: 8px; }
+.alarm input[type=time] { flex: 1; min-width: 0; font: inherit; font-size: 24px; font-weight: bold; color: var(--text);
+  background: transparent; border: none; padding: 0; }
+.alarm .tog.on { background: var(--accent); border-color: var(--accent); color: #fff; }
+.chips { display: flex; gap: 5px; }
+.chips button { flex: 1; padding: 6px 0; border-radius: 16px; font-size: 13px; }
+.chips button.on { background: var(--accent); border-color: var(--accent); color: #fff; }
+.chips button.sun { color: var(--red); } .chips button.sat { color: var(--blue); }
+.chips button.on.sun, .chips button.on.sat { color: #fff; }
+.alarm .what { display: flex; gap: 6px; flex-wrap: wrap; align-items: center; }
+.alarm .what button.on { border-color: var(--accent); color: var(--accent); font-weight: bold; }
+.alarm .what .sp { flex: 1; }
+.line { display: flex; align-items: center; gap: 8px; font-size: 14px; }
+.line span { flex: 1; }
 </style>
 </head>
 <body>
@@ -153,6 +183,7 @@ form.add input:focus { outline: none; border-style: solid; border-color: var(--a
     <button id="today-btn">오늘</button>
     <button id="reload" aria-label="새로고침">⟳</button>
     <button id="lock-btn" aria-label="잠그기">🔒</button>
+    <button id="app-btn" class="hidden" aria-label="알림·앱 설정">⚙</button>
   </header>
   <section id="cal">
     <div class="wd" id="wd"></div>
@@ -179,6 +210,19 @@ form.add input:focus { outline: none; border-style: solid; border-color: var(--a
       <button type="button" id="ed-cancel">취소</button><button type="submit" class="primary">저장</button>
     </div>
   </form>
+</div>
+<div id="app-sheet" class="hidden">
+  <div class="panel">
+    <div class="sheet-head"><b>알림 · 앱</b><button type="button" id="app-close">닫기</button></div>
+    <div id="app-perm"></div>
+    <h3>알림</h3>
+    <div id="alarm-list"></div>
+    <button type="button" id="alarm-add">+ 알림 추가</button>
+    <h3>앱</h3>
+    <div class="line"><span id="pair-state" class="muted"></span><button type="button" id="pair-btn">QR로 연결</button></div>
+    <div class="line"><span id="app-ver" class="muted"></span><button type="button" id="app-update" class="hidden">새 버전 받기</button></div>
+    <div class="line"><span class="muted">이 폰에서 잠그기 (비밀번호를 다시 물음)</span><button type="button" id="app-lock">잠그기</button></div>
+  </div>
 </div>
 <div id="toast" class="hidden"></div>
 
@@ -229,6 +273,17 @@ if (pairHash) {
 }
 let device = lsGet("libird.device");
 if (!device) { device = newId().slice(0, 16); lsSet("libird.device", device); }
+
+// 안드로이드 앱 안에서 열렸으면 앱 기능(window.LiBirdApp)을 쓴다: 위젯·알림에 키와 오늘~모레 내용을 넘긴다
+const APP = window.LiBirdApp || null;
+function app(fn, ...args) {
+  try { return APP ? APP[fn](...args) : null; } catch (e) { return null; }
+}
+if (APP) {
+  $("#lock-btn").classList.add("hidden");
+  $("#app-btn").classList.remove("hidden");
+  $("#remember").closest("label").classList.add("hidden");  // 앱은 늘 기억한다 (위젯·알림에 필요)
+}
 
 function show(id) {
   for (const el of ["#msg", "#lock", "#main"]) $(el).classList.toggle("hidden", el !== id);
@@ -297,6 +352,7 @@ function forgetKey() {
   memKey = null;
   token = null;
   lsSet(KEY_STORE, null);
+  app("clearKey");
 }
 
 async function load() {
@@ -350,6 +406,7 @@ $("#lock").addEventListener("submit", async (ev) => {
 
 // 데이터를 푼 뒤: 폰 연결 확인 → PC가 반영한 작업 정리 → 화면 → 남은 작업 올리기
 async function opened() {
+  app("setKey", memKey.salt, memKey.iter, toB64(memKey.key));  // 앱: 위젯·알림이 쓸 키
   if (!token) await unlockToken();
   confirmApplied();
   openMain();
@@ -367,7 +424,7 @@ async function unlockToken() {
     if (justPaired) toast("수정 기능을 연결했어요. 할 일을 눌러 고칠 수 있어요.");
   } catch (e) {
     toast(justPaired ? "QR이 맞지 않아요. PC에서 QR을 다시 띄워 찍어 주세요."
-      : "PC 보기 비밀번호가 바뀌어 수정 연결이 풀렸어요. PC 설정에서 QR로 다시 연결해 주세요.");
+      : `PC 보기 비밀번호가 바뀌어 수정 연결이 풀렸어요. ${APP ? "⚙ → 「QR로 연결」로" : "PC 설정에서 QR로"} 다시 연결해 주세요.`);
     pairCode = null;
     lsSet(PAIR_STORE, null);
   }
@@ -452,7 +509,8 @@ function showStatus() {
   if (snap && snap.edit === false) {
     html = n ? `PC에서 폰 수정이 꺼져 있어요. 고친 ${n}건은 반영되지 않아요.` : "";
   } else if (!token) {
-    html = "할 일을 고치려면 PC 설정 → 모바일 → 「폰 연결 QR」을 폰 카메라로 찍으세요.";
+    html = APP ? "할 일을 고치려면 ⚙ → 「QR로 연결」을 누르고 PC의 「폰 연결 QR」을 찍으세요."
+      : "할 일을 고치려면 PC 설정 → 모바일 → 「폰 연결 QR」을 폰 카메라로 찍으세요.";
   } else if (pushing) {
     html = "보내는 중…";
   } else if (pushError) {
@@ -482,6 +540,18 @@ function derive() {
   }
   d.overdue = d.overdue.filter((e) => !e.done);
   data = d;
+  sendView();
+}
+
+// 앱: 위젯·알림이 쓰도록 오늘~모레 내용(폰에서 고친 것 포함)을 넘긴다. 바뀌었을 때만
+let lastSent = "";
+function sendView() {
+  if (!APP || !snap) return;
+  const t = new Date();
+  const keys = [0, 1, 2].map((i) => iso(new Date(t.getFullYear(), t.getMonth(), t.getDate() + i)));
+  const v = JSON.stringify({generated_at: snap.generated_at, today: keys[0], range: [keys[0], keys[2]],
+    sections: snap.sections, days: Object.fromEntries(keys.map((k) => [k, data.days[k] || []])), overdue: data.overdue});
+  if (v !== lastSent) { lastSent = v; app("saveView", v); }
 }
 
 function applyLocal(d, op) {
@@ -601,6 +671,10 @@ function render() {
   $("#updated").textContent = `PC에서 ${gen.getMonth() + 1}/${gen.getDate()} ${pad(gen.getHours())}:${pad(gen.getMinutes())}에 업데이트`
     + (hours > 24 ? " · PC가 꺼져 있었을 수 있어요" : "");
   $("#updated").classList.toggle("stale", hours > 24);
+  if (!APP && /Android/i.test(navigator.userAgent)) {  // 안드로이드 브라우저: 앱(위젯·알림) 받는 곳
+    $("#updated").insertAdjacentHTML("beforeend",
+      ` · <a href="https://github.com/${CFG.owner}/${CFG.repo}/releases/latest">안드로이드 앱 받기</a>`);
+  }
 }
 
 function itemRow(e, date, ed, extra) {
@@ -737,6 +811,118 @@ $("#next").onclick = () => step(1);
 $("#today-btn").onclick = () => { view = null; openMain(); };
 $("#reload").onclick = () => load();
 $("#lock-btn").onclick = () => { forgetKey(); view = null; showLock(""); };
+
+// ------------------------------------------------------------ 안드로이드 앱: 알림 · 앱 설정
+// 알림: {id, on, time "HH:MM", days [0=월…6=일], today, tomorrow, overdue}. 앱이 저장하고 정한 시각에 띄운다
+let alarms = [];
+const appSheetOpen = () => !$("#app-sheet").classList.contains("hidden");
+
+function saveAlarms() {
+  if (!app("setAlarms", JSON.stringify(alarms))) toast("알림을 저장하지 못했어요.");
+}
+
+function renderApp() {
+  let st = {};
+  try { st = JSON.parse(app("status") || "{}"); } catch (e) { /* 무시 */ }
+  const perm = [];
+  if (st.notif === false) perm.push(`<div class="perm"><span>알림이 꺼져 있어요.</span><button type="button" data-a="notif">허용</button></div>`);
+  if (st.battery === false) {
+    perm.push(`<div class="perm"><span>배터리 절전 때문에 알림이 늦거나 안 올 수 있어요.</span>`
+      + `<button type="button" data-a="battery">제한 없음으로</button></div>`);
+  }
+  $("#app-perm").innerHTML = perm.join("");
+  const ws = snap ? snap.week_start : 6;
+  const order = Array.from({length: 7}, (_, i) => (ws + i) % 7);
+  $("#alarm-list").innerHTML = alarms.map((a, i) => {
+    const chips = order.map((wd) => `<button type="button" class="${[a.days.includes(wd) && "on", wd === 6 && "sun", wd === 5 && "sat"]
+      .filter(Boolean).join(" ")}" data-wd="${wd}">${WEEKDAYS[wd]}</button>`).join("");
+    const what = [["today", "오늘 할 일"], ["tomorrow", "내일 할 일"], ["overdue", "밀린 일"]].map(([k, label]) =>
+      `<button type="button" class="${a[k] ? "on" : ""}" data-k="${k}">${label}</button>`).join("");
+    return `<div class="alarm${a.on ? "" : " off"}" data-i="${i}">`
+      + `<div class="top"><input type="time" value="${esc(a.time)}" aria-label="알림 시각">`
+      + `<button type="button" class="tog${a.on ? " on" : ""}">${a.on ? "켜짐" : "꺼짐"}</button>`
+      + `<button type="button" class="del danger">삭제</button></div>`
+      + `<div class="chips">${chips}</div>`
+      + `<div class="what">${what}<span class="sp"></span><button type="button" class="test">시험</button></div></div>`;
+  }).join("") || `<div class="muted">알림이 없어요.</div>`;
+  $("#pair-state").textContent = token ? "수정 기능 연결됨" : "수정 기능 연결 안 됨";
+  $("#pair-btn").textContent = token ? "다시 연결" : "QR로 연결";
+  $("#app-ver").textContent = `앱 ${st.version || ""}` + (st.newer ? ` · 새 버전 ${st.latest}` : " · 최신");
+  $("#app-update").classList.toggle("hidden", !st.newer);
+}
+
+function openApp() {
+  try { alarms = JSON.parse(app("getAlarms") || "[]"); } catch (e) { alarms = []; }
+  renderApp();
+  $("#app-sheet").classList.remove("hidden");
+}
+const closeApp = () => $("#app-sheet").classList.add("hidden");
+
+$("#app-btn").onclick = openApp;
+$("#app-close").onclick = closeApp;
+$("#app-sheet").addEventListener("click", (ev) => {
+  if (ev.target.id === "app-sheet") { closeApp(); return; }
+  const a = ev.target.closest("[data-a]");
+  if (a) { app(a.dataset.a === "notif" ? "requestNotifications" : "openBattery"); return; }
+  const card = ev.target.closest(".alarm");
+  if (!card) return;
+  const al = alarms[Number(card.dataset.i)];
+  const btn = ev.target.closest("button");
+  if (!btn) return;
+  if (btn.classList.contains("tog")) al.on = !al.on;
+  else if (btn.classList.contains("del")) {
+    if (!confirm(`${al.time} 알림을 지울까요?`)) return;
+    alarms.splice(alarms.indexOf(al), 1);
+  } else if (btn.classList.contains("test")) {
+    app("testAlarm", JSON.stringify(al));
+    toast("시험 알림을 보냈어요.");
+    return;
+  } else if (btn.dataset.wd) {
+    const wd = Number(btn.dataset.wd);
+    if (al.days.includes(wd)) { if (al.days.length > 1) al.days = al.days.filter((x) => x !== wd); }
+    else al.days = [...al.days, wd].sort();
+  } else if (btn.dataset.k) {
+    const k = btn.dataset.k;
+    if (!al[k] || ["today", "tomorrow", "overdue"].filter((x) => al[x]).length > 1) al[k] = !al[k];  // 하나는 남긴다
+  } else return;
+  saveAlarms();
+  renderApp();
+});
+$("#alarm-list").addEventListener("change", (ev) => {
+  const card = ev.target.closest(".alarm");
+  if (!card || ev.target.type !== "time" || !ev.target.value) return;
+  alarms[Number(card.dataset.i)].time = ev.target.value;
+  saveAlarms();
+});
+$("#alarm-add").onclick = () => {
+  alarms.push({id: newId().slice(0, 8), on: true, time: "12:00", days: [0, 1, 2, 3, 4, 5, 6],
+    today: true, tomorrow: false, overdue: false});
+  saveAlarms();
+  renderApp();
+};
+$("#pair-btn").onclick = () => app("scanQr");
+$("#app-update").onclick = () => app("openUpdate");
+$("#app-lock").onclick = () => { closeApp(); forgetKey(); view = null; showLock(""); };
+
+// 앱이 부른다: QR을 찍었을 때, 뒤로 버튼, 다시 켰을 때, 권한을 바꾼 뒤
+window.appPair = (code) => {
+  pairCode = code;
+  lsSet(PAIR_STORE, code);
+  justPaired = true;
+  token = null;
+  closeApp();
+  if (snap && memKey) opened();
+};
+window.appBack = () => {
+  if (!$("#sheet").classList.contains("hidden")) { closeSheet(); return true; }
+  if (appSheetOpen()) { closeApp(); return true; }
+  return false;
+};
+window.appResume = () => {
+  if (snap && Date.now() - lastFetch > 60000) load();
+  if (appSheetOpen()) renderApp();
+};
+window.appRefreshSettings = () => { if (appSheetOpen()) renderApp(); };
 
 let touch = null;
 $("#cal").addEventListener("touchstart", (e) => { touch = e.touches[0]; }, {passive: true});
