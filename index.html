@@ -506,9 +506,28 @@ function applyLocal(d, op) {
     const moved = {...all[0], s: op.section || all[0].s};
     delete moved.date;
     dropDays();
-    (d.days[op.date] ||= []).push(moved);
-    if (od && op.date < iso(new Date())) { od.date = op.date; od.s = moved.s; } else dropOverdue();
+    let due = op.date;
+    if (moved.p) {  // 기간 일정은 길이를 유지한 채 시작일을 옮겨 기간 안의 날마다 넣는다
+      const len = Math.round((fromIso(moved.p[1]) - fromIso(moved.p[0])) / 864e5);
+      const s = fromIso(op.date);
+      due = iso(new Date(s.getFullYear(), s.getMonth(), s.getDate() + len));
+      moved.p = [op.date, due];
+      for (let i = 0; i <= len; i++) {
+        (d.days[iso(new Date(s.getFullYear(), s.getMonth(), s.getDate() + i))] ||= []).push({...moved});
+      }
+    } else {
+      (d.days[op.date] ||= []).push(moved);
+    }
+    if (od && due < iso(new Date())) { od.date = op.date; od.s = moved.s; od.p = moved.p; } else dropOverdue();
   }
+}
+
+// 기간 표기: 같은 달이면 10/24~26, 아니면 10/30~11/2 (PC와 같다)
+function spanLabel(p) {
+  const a = fromIso(p[0]), b = fromIso(p[1]);
+  return a.getFullYear() === b.getFullYear() && a.getMonth() === b.getMonth()
+    ? `${a.getMonth() + 1}/${a.getDate()}~${b.getDate()}`
+    : `${a.getMonth() + 1}/${a.getDate()}~${b.getMonth() + 1}/${b.getDate()}`;
 }
 
 function findEntry(id) {
@@ -587,10 +606,11 @@ function render() {
 function itemRow(e, date, ed, extra) {
   const star = !ed && e.star ? `<span class="star">★</span> ` : "";
   const recur = e.r ? ` <span class="sm">↻</span>` : "";
+  const span = e.p && !extra ? ` <span class="sm">· ${spanLabel(e.p)}</span>` : "";
   const cls = [e.done && "done", pendingIds.has(e.id) && "pending"].filter(Boolean).join(" ");
   return `<li class="${cls}" data-id="${esc(e.id)}" data-date="${date}">`
     + `<span class="ck" role="checkbox" aria-checked="${Boolean(e.done)}">${e.done ? "✓" : ""}</span>`
-    + `<span class="tx">${star}${esc(e.t)}${recur}</span>${extra || ""}`
+    + `<span class="tx">${star}${esc(e.t)}${recur}${span}</span>${extra || ""}`
     + (ed ? `<button type="button" class="stb${e.star ? " on" : ""}" aria-label="중요 표시">${e.star ? "★" : "☆"}</button>` : "")
     + `</li>`;
 }
@@ -609,7 +629,7 @@ function renderDay(sections, todayIso) {
       + data.overdue.map((e) => {
         const od = fromIso(e.date);
         const sec = sections[e.s];
-        return itemRow(e, e.date, ed, `<span class="sm">${od.getMonth() + 1}/${od.getDate()}`
+        return itemRow(e, e.date, ed, `<span class="sm">${e.p ? spanLabel(e.p) : `${od.getMonth() + 1}/${od.getDate()}`}`
           + (sec ? ` · <span style="color:${sec.color}">●</span> ${esc(sec.name)}` : "") + `</span>`);
       }).join("") + `</ul></div>`;
   }
@@ -642,13 +662,15 @@ function setStar(on) {
 }
 
 function openSheet(e, date) {
+  if (e.p) date = e.p[0];  // 기간 일정은 시작일을 보여 주고, 바꾸면 기간째 옮긴다
   editing = {e, date};
   $("#ed-text").value = e.t;
   $("#ed-date").value = date;
   $("#ed-sec").innerHTML = snap.sections.map((s) =>
     `<option value="${esc(s.id)}"${s.id === e.s ? " selected" : ""}>${esc(s.name)}</option>`).join("");
   setStar(Boolean(e.star));
-  $("#ed-note").textContent = e.r ? "반복 항목이에요. 이 날짜 것만 바뀌어요." : "";
+  $("#ed-note").textContent = e.r ? "반복 항목이에요. 이 날짜 것만 바뀌어요."
+    : e.p ? `기간 일정이에요 (${spanLabel(e.p)}). 날짜는 시작일이고, 바꾸면 기간째 옮겨져요.` : "";
   $("#sheet").classList.remove("hidden");
 }
 function closeSheet() { editing = null; $("#sheet").classList.add("hidden"); }
