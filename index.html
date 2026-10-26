@@ -375,6 +375,28 @@ html.pc #status button { padding: 1px 8px; font-size: 9pt; }
 #pc .cl.drop-end li:last-child { box-shadow: inset 0 -2px 0 var(--accent); }
 #pc .cl.drop-end:empty { box-shadow: inset 0 2px 0 var(--accent); }
 .dragimg { position: fixed; top: -100px; left: 0; padding: 3px 10px; border-radius: 10px; font-size: 10pt; background: var(--accent); color: var(--on-accent); }
+/* 무기한(메모) 섹션 (v1.2.0): 날짜가 없어 달력 칸에는 안 나온다.
+   폰은 하루 목록 아래 「메모」 상자들, PC 화면은 보기 아래 메모 칸 (PC 프로그램 메모 패널과 같은 모양) */
+#day .mhead { display: flex; align-items: center; gap: 8px; margin: 14px 2px 8px; }
+#day .mhead .mtg { border: none; background: none; padding: 2px 0; font-size: 17px; font-weight: bold; color: var(--text); }
+#day .mhead .left { margin-left: auto; font-size: 13px; }
+#day li.done .tx { text-decoration: line-through; color: var(--muted); }
+#pc-memo { flex: none; display: flex; flex-direction: column; background: var(--bg); }
+#pc-memo:empty { display: none; }
+#pc-memo .pmbar { display: flex; align-items: center; gap: 6px; padding: 3px 12px 3px 8px; background: var(--card); border-top: 1px solid var(--border); }
+#pc #pc-memo .pmbar .mtg { border: none; background: transparent; font-weight: bold; padding: 2px 6px; }
+#pc #pc-memo .pmbar .mtg:hover { background: var(--btn-hover); }
+#pc-memo .pmbar .left { margin-left: auto; }
+#pc-memo .pmgrid { padding: 8px; display: grid; gap: 8px; max-height: 45vh; overflow-y: auto; }
+#pc .ml { flex: 1; min-height: 0; overflow-y: auto; }
+#pc .ml li { position: relative; padding: 3px 30px 3px 2px; border-radius: 4px; }
+#pc .ml li:hover { background: var(--list-hover); }
+#pc .ml li.done .tx { text-decoration: line-through; }
+#pc .ml .pst { position: absolute; right: 4px; top: 3px; width: 24px; text-align: center; color: var(--star); }
+#pc .ml .pst.off { color: var(--muted); visibility: hidden; }
+#pc-memo.edit .ml li:hover .pst.off { visibility: visible; }
+#pc-memo.edit .ml .pst, #pc-memo.edit .ml .cbx { cursor: pointer; }
+#pc-memo.edit .ml .cbx:hover { border-color: var(--accent); }
 </style>
 </head>
 <body>
@@ -419,6 +441,7 @@ html.pc #status button { padding: 1px 8px; font-size: 9pt; }
       <button type="button" id="pc-lock" title="이 브라우저에서 잠그기 (보기 비밀번호를 다시 물음)">잠그기</button>
     </div>
     <div id="pc-view"></div>
+    <div id="pc-memo"></div>
     <div class="pc-foot" id="pc-foot"><span id="pc-range" class="muted"></span></div>
   </div>
   <div id="status" class="muted hidden"></div>
@@ -430,7 +453,7 @@ html.pc #status button { padding: 1px 8px; font-size: 9pt; }
 <div id="sheet" class="hidden">
   <form class="panel" id="ed-form" autocomplete="off">
     <input id="ed-text" maxlength="500" enterkeyhint="done" aria-label="할 일">
-    <div class="row">
+    <div class="row" id="ed-date-row">
       <label for="ed-date">날짜</label><input id="ed-date" type="date">
       <button type="button" data-q="0">오늘</button><button type="button" data-q="1">내일</button>
     </div>
@@ -777,7 +800,9 @@ function derive() {
   const days = {};
   for (const [k, list] of Object.entries(snap.days)) days[k] = list.map((e) => ({...e}));
   const d = {days, overdue: snap.overdue.map((e) => ({...e})), sections: snap.sections.map((s) => ({...s})),
-    week_start: snap.week_start, recurrences: (snap.recurrences || []).map((r) => ({...r}))};
+    week_start: snap.week_start, recurrences: (snap.recurrences || []).map((r) => ({...r})),
+    // 무기한(메모) 섹션 (v1.2.0 — 예전 PC 가 보낸 데이터에는 없다)
+    memo_sections: (snap.memo_sections || []).map((s) => ({...s})), memos: (snap.memos || []).map((m) => ({...m}))};
   pendingIds = new Set();
   if (snap.edit !== false) {
     for (const op of pending) {
@@ -816,7 +841,34 @@ function dayRange(a, b) {  // a~b 날짜 목록
   return out;
 }
 
+const MEMO_OPS = ["madd", "mdone", "mstar", "mtext", "mdelete", "mmove"];
+// 메모 작업을 화면에 미리 반영 (PC mobile_edit._apply_memo 와 같은 규칙)
+function applyMemo(d, op) {
+  const m = d.memos.find((x) => x.id === op.item);
+  const has = (sid) => d.memo_sections.some((s) => s.id === sid);
+  if (op.k === "madd") {
+    const sid = has(op.section) ? op.section : (d.memo_sections[0] || {}).id;
+    if (!m && sid) d.memos.push({id: op.item, t: op.text, s: sid, done: false, star: false});
+  } else if (!m) {
+    return;
+  } else if (op.k === "mdone") {
+    m.done = op.done;
+  } else if (op.k === "mstar") {
+    m.star = op.star;
+  } else if (op.k === "mtext") {
+    m.t = op.text;
+  } else if (op.k === "mdelete") {
+    d.memos.splice(d.memos.indexOf(m), 1);
+  } else if (op.k === "mmove" && has(op.section) && op.section !== m.s) {
+    d.memos.splice(d.memos.indexOf(m), 1);  // 그 섹션 끝으로
+    m.s = op.section;
+    d.memos.push(m);
+  }
+}
+const findMemo = (id) => (data && data.memos.find((m) => m.id === id)) || null;
+
 function applyLocal(d, op) {
+  if (MEMO_OPS.includes(op.k)) { applyMemo(d, op); return; }
   const hits = [];
   for (const [k, list] of Object.entries(d.days)) for (const e of list) if (e.id === op.item) hits.push({k, list, e});
   const od = d.overdue.find((e) => e.id === op.item);
@@ -1041,6 +1093,36 @@ function itemRow(e, date, ed, extra) {
     + `</li>`;
 }
 
+const MEMO_FOLD_STORE = "libird.memo.folded";  // 폰 메모 상자들 접힘
+function memoRow(m, ed) {
+  const star = !ed && m.star ? `<span class="star">★</span> ` : "";
+  const cls = [m.done && "done", pendingIds.has(m.id) && "pending"].filter(Boolean).join(" ");
+  return `<li class="${cls}" data-mid="${esc(m.id)}">`
+    + `<span class="ck" role="checkbox" aria-checked="${Boolean(m.done)}">${m.done ? "✓" : ""}</span>`
+    + `<span class="tx">${star}${esc(m.t)}</span>`
+    + (ed ? `<button type="button" class="stb${m.star ? " on" : ""}" aria-label="중요 표시">${m.star ? "★" : "☆"}</button>` : "")
+    + `</li>`;
+}
+function memoHtml(ed) {
+  const secs = data.memo_sections;
+  if (!secs.length) return "";
+  const folded = lsGet(MEMO_FOLD_STORE) === "1", left = data.memos.filter((m) => !m.done).length;
+  let html = `<div class="mhead"><button type="button" class="mtg">${folded ? "▸" : "▾"} 메모</button>`
+    + `<span class="left muted">${left ? `남은 메모 ${left}개` : ""}</span></div>`;
+  if (folded) return html;
+  for (const sec of secs) {
+    const list = data.memos.filter((m) => m.s === sec.id), done = list.filter((m) => m.done).length;
+    html += `<div class="box"><div class="head"><span class="bar" style="background:${sec.color}"></span>`
+      + `${esc(sec.name)}<span class="cnt">${list.length ? `${done}/${list.length}` : ""}</span></div>`
+      + `<ul>${list.map((m) => memoRow(m, ed)).join("")}</ul>`
+      + (!list.length && !ed ? `<div class="muted" style="padding:4px 0">메모 없음</div>` : "")
+      + (ed ? `<form class="add" data-ms="${esc(sec.id)}"><input data-s="memo-${esc(sec.id)}" maxlength="500" enterkeyhint="done"`
+        + ` placeholder="+ 메모 추가" aria-label="${esc(sec.name)}에 메모 추가"></form>` : "")
+      + `</div>`;
+  }
+  return html;
+}
+
 function renderDay(sections, todayIso) {
   const ed = canEdit();
   const d = fromIso(sel);
@@ -1076,6 +1158,7 @@ function renderDay(sections, todayIso) {
         + `</div>`;
     }
   }
+  html += memoHtml(ed);  // 무기한 메모: 고른 날과 상관없이 늘 아래에 (v1.2.0)
   const restore = keepInputs($("#day"), "form.add input");
   $("#day").innerHTML = html;
   $("#day").classList.toggle("edit", ed);
@@ -1092,6 +1175,7 @@ function setStar(on) {
 function openSheet(e, date) {
   if (e.p) date = e.p[0];  // 기간 일정은 시작일을 보여 주고, 바꾸면 기간째 옮긴다
   editing = {e, date};
+  $("#ed-date-row").classList.remove("hidden");
   $("#ed-text").value = e.t;
   $("#ed-date").value = date;
   $("#ed-sec").innerHTML = snap.sections.map((s) =>
@@ -1104,6 +1188,19 @@ function openSheet(e, date) {
 }
 function closeSheet() { editing = null; $("#sheet").classList.add("hidden"); syncLock(); }
 
+// 메모 고치기 (같은 창, 날짜 줄은 숨김 · 섹션은 무기한 섹션 중에서)
+function openMemoSheet(m) {
+  editing = {memo: m};
+  $("#ed-text").value = m.t;
+  $("#ed-date-row").classList.add("hidden");
+  $("#ed-sec").innerHTML = data.memo_sections.map((s) =>
+    `<option value="${esc(s.id)}"${s.id === m.s ? " selected" : ""}>${esc(s.name)}</option>`).join("");
+  setStar(Boolean(m.star));
+  $("#ed-note").textContent = "날짜 없는 메모예요 (달력에는 안 나와요).";
+  $("#sheet").classList.remove("hidden");
+  syncLock();
+}
+
 // 수정 창이나 ⚙ 창이 열려 있으면 뒤 페이지 스크롤을 잠근다 (보던 위치는 그대로)
 function syncLock() {
   const open = !$("#sheet").classList.contains("hidden") || !$("#app-sheet").classList.contains("hidden");
@@ -1113,6 +1210,15 @@ function syncLock() {
 $("#ed-form").addEventListener("submit", (ev) => {
   ev.preventDefault();
   if (!editing) return;
+  if (editing.memo) {
+    const m = editing.memo, text = $("#ed-text").value.trim(), ns = $("#ed-sec").value, ops = [];
+    if (text && text !== m.t) ops.push(["mtext", {item: m.id, text}]);
+    if (edStar !== Boolean(m.star)) ops.push(["mstar", {item: m.id, star: edStar}]);
+    if (ns && ns !== m.s) ops.push(["mmove", {item: m.id, section: ns}]);
+    closeSheet();
+    addOps(ops);
+    return;
+  }
   const {e, date} = editing;
   const text = $("#ed-text").value.trim(), nd = $("#ed-date").value || date, ns = $("#ed-sec").value;
   const ops = [];
@@ -1133,6 +1239,13 @@ for (const b of document.querySelectorAll("#sheet [data-q]")) {
 }
 $("#ed-del").onclick = () => {
   if (!editing) return;
+  if (editing.memo) {
+    const m = editing.memo;
+    if (!confirm(`「${m.t}」 메모를 삭제할까요?`)) return;
+    closeSheet();
+    addOps([["mdelete", {item: m.id}]]);
+    return;
+  }
   const {e} = editing;
   if (!confirm(`「${e.t}」을(를) 삭제할까요?` + (e.r ? "\n반복 항목은 이 날짜 것만 지워져요." : ""))) return;
   closeSheet();
@@ -1149,6 +1262,20 @@ $("#grid").addEventListener("click", (ev) => {
   render();
 });
 $("#day").addEventListener("click", (ev) => {
+  if (ev.target.closest(".mhead .mtg")) {  // 메모 접기·펴기 (보기 전용이어도)
+    lsSet(MEMO_FOLD_STORE, lsGet(MEMO_FOLD_STORE) === "1" ? null : "1");
+    render();
+    return;
+  }
+  const mli = ev.target.closest("li[data-mid]");
+  if (mli) {
+    const m = canEdit() && findMemo(mli.dataset.mid);
+    if (!m) return;
+    if (ev.target.closest(".ck")) addOps([["mdone", {item: m.id, done: !m.done}]]);
+    else if (ev.target.closest(".stb")) addOps([["mstar", {item: m.id, star: !m.star}]]);
+    else openMemoSheet(m);
+    return;
+  }
   const li = ev.target.closest("li[data-id]");
   if (!li || !canEdit()) return;
   const e = findEntry(li.dataset.id);
@@ -1159,6 +1286,16 @@ $("#day").addEventListener("click", (ev) => {
 });
 $("#day").addEventListener("submit", (ev) => {
   ev.preventDefault();
+  const mform = ev.target.closest("form.add[data-ms]");
+  if (mform) {  // 메모 추가 (이어서 입력)
+    const inp = mform.querySelector("input"), text = inp.value.trim(), sid = mform.dataset.ms;
+    if (!text) return;
+    inp.value = "";
+    addOps([["madd", {item: newId(), section: sid, text}]]);
+    const again = document.querySelector(`#day form.add[data-ms="${CSS.escape(sid)}"] input`);
+    if (again) again.focus();
+    return;
+  }
   const form = ev.target.closest("form.add");
   const text = form ? form.querySelector("input").value.trim() : "";
   if (!text) return;
@@ -1378,11 +1515,93 @@ function renderPC() {
   if (pc.mode === "year") renderYear(v);
   else if (pc.mode === "month") renderMonth(v);
   else renderPcDay(v);
+  renderPcMemo();
   // 보는 범위 일부가 PC가 보내는 기간 밖이면 알린다 (그 밖은 비어 보인다)
   const [lo, hi] = snap.range;
   const a = pc.mode === "year" ? `${c.getFullYear()}-01-01` : pc.mode === "month" ? iso(new Date(c.getFullYear(), c.getMonth(), 1)) : pc.cur;
   const b = pc.mode === "year" ? `${c.getFullYear()}-12-31` : pc.mode === "month" ? iso(new Date(c.getFullYear(), c.getMonth() + 1, 0)) : pc.cur;
   $("#pc-range").textContent = a < lo || b > hi ? `PC가 보내는 기간: ${lo} ~ ${hi} (그 밖은 비어 보여요)` : "";
+}
+
+// ---------------- 메모 칸 (v1.2.0): 년·월·일 어느 보기에서나 아래에. PC 프로그램 메모 패널과 같은 모양
+const PC_MEMO_FOLD = "libird.pc.memoFolded";
+function toggleMemoFold() {
+  lsSet(PC_MEMO_FOLD, lsGet(PC_MEMO_FOLD) === "1" ? null : "1");
+  render();
+}
+function pcMemoRow(m) {
+  const cls = [m.done && "done", pendingIds.has(m.id) && "pending"].filter(Boolean).join(" ");
+  return `<li class="${cls}" data-mid="${esc(m.id)}"><span class="cbx"></span><span class="tx">${esc(m.t)}</span>`
+    + `<span class="pst${m.star ? "" : " off"}">${m.star ? "★" : "☆"}</span></li>`;
+}
+function renderPcMemo() {
+  const box = $("#pc-memo"), secs = data.memo_sections, ed = canEdit();
+  if (!secs.length) { box.innerHTML = ""; return; }
+  const folded = lsGet(PC_MEMO_FOLD) === "1", left = data.memos.filter((m) => !m.done).length;
+  const restore = keepInputs(box, ".addin"), scroll = {};
+  for (const ul of box.querySelectorAll(".ml")) scroll[ul.dataset.ms] = ul.scrollTop;
+  let html = `<div class="pmbar"><button type="button" class="mtg" title="메모 접기/펴기">${folded ? "▸" : "▾"}&nbsp; 메모</button>`
+    + `<span class="left muted">${left ? `남은 메모 ${left}개` : ""}</span></div>`;
+  if (!folded) {
+    const cols = Math.max(1, Math.min(secs.length, Math.floor((box.clientWidth || innerWidth) / 240)));
+    html += `<div class="pmgrid" style="grid-template-columns:repeat(${cols},minmax(0,1fr));`
+      + `grid-template-rows:repeat(${Math.ceil(secs.length / cols)},184px)">`;
+    for (const sec of secs) {
+      const list = data.memos.filter((m) => m.s === sec.id), done = list.filter((m) => m.done).length;
+      html += `<div class="card" data-ms="${esc(sec.id)}"><div class="chead"><span class="cb5" style="background:${sec.color}"></span>`
+        + `<b>${esc(sec.name)}</b><span class="cnt">${list.length ? `${done}/${list.length}` : ""}</span></div>`
+        + `<ul class="ml" data-ms="${esc(sec.id)}">${list.map(pcMemoRow).join("")}</ul>`
+        + (ed ? `<form class="addf" data-ms="${esc(sec.id)}"><input class="addin" data-s="memo-${esc(sec.id)}" maxlength="500"`
+          + ` placeholder="+ 메모 입력 후 Enter" aria-label="${esc(sec.name)}에 메모 추가"></form>` : "")
+        + `</div>`;
+    }
+    html += `</div>`;
+  }
+  box.innerHTML = html;
+  box.classList.toggle("edit", ed);
+  restore();
+  for (const ul of box.querySelectorAll(".ml")) ul.scrollTop = scroll[ul.dataset.ms] || 0;
+}
+// 메모 글 고치기: 더블클릭. Enter·포커스 잃음 = 저장, Esc = 취소 (할 일 startEdit 와 같다)
+function startMemoEdit(id) {
+  const li = document.querySelector(`#pc-memo li[data-mid="${CSS.escape(id)}"]`), m = findMemo(id);
+  if (!li || !m || !canEdit()) return;
+  closeMenu();
+  hideTip();
+  pc.editing = true;
+  const tx = li.querySelector(".tx");
+  tx.innerHTML = `<input class="ined" maxlength="500" aria-label="메모 수정">`;
+  const inp = tx.querySelector("input");
+  inp.value = m.t;
+  inp.focus();
+  inp.select();
+  let over = false;
+  const finish = (save) => {
+    if (over) return;
+    over = true;
+    pc.editing = false;
+    const text = inp.value.trim();
+    if (save && text && text !== m.t) addOps([["mtext", {item: id, text}]]);
+    else render();
+  };
+  inp.addEventListener("keydown", (k) => {
+    k.stopPropagation();
+    if (k.isComposing) return;
+    if (k.key === "Enter") { k.preventDefault(); finish(true); }
+    else if (k.key === "Escape") { k.preventDefault(); finish(false); }
+  });
+  inp.addEventListener("blur", () => finish(true));
+}
+function memoMenu(id) {
+  const m = findMemo(id);
+  if (!m) return generalMenu();
+  const others = data.memo_sections.filter((s) => s.id !== m.s);
+  return [{label: m.done ? "완료 취소" : "완료", fn: () => addOps([["mdone", {item: id, done: !m.done}]])},
+    {label: m.star ? "중요 표시 해제" : "중요 표시 ★", fn: () => addOps([["mstar", {item: id, star: !m.star}]])}, "-",
+    {label: "수정", fn: () => startMemoEdit(id)}, {label: "삭제", fn: () => addOps([["mdelete", {item: id}]])},
+    ...(others.length ? [{label: "다른 메모 섹션으로", sub: others.map((s) => ({label: s.name, color: s.color,
+      fn: () => addOps([["mmove", {item: id, section: s.id}]])}))}] : []),
+    "-", {label: "메모 접기", fn: toggleMemoFold}];
 }
 
 // ---------------- 년 보기
@@ -2155,6 +2374,27 @@ function clearDrop() {
 }
 
 // ---------------- 마우스·키보드
+const pcm = $("#pc-memo");
+pcm.addEventListener("click", (ev) => {
+  if (ev.target.closest(".mtg")) { toggleMemoFold(); return; }
+  const li = ev.target.closest("li[data-mid]"), m = li && canEdit() && findMemo(li.dataset.mid);
+  if (!m) return;
+  if (ev.target.closest(".cbx")) addOps([["mdone", {item: m.id, done: !m.done}]]);
+  else if (ev.target.closest(".pst")) addOps([["mstar", {item: m.id, star: !m.star}]]);
+});
+pcm.addEventListener("dblclick", (ev) => {
+  const li = ev.target.closest("li[data-mid]");
+  if (li && !ev.target.closest(".cbx, .pst, .ined")) startMemoEdit(li.dataset.mid);
+});
+pcm.addEventListener("submit", (ev) => {  // 메모 입력란 Enter: 그 섹션 끝에 더하고 이어서 입력
+  const form = ev.target.closest(".addf");
+  if (!form) return;
+  ev.preventDefault();
+  const inp = form.querySelector("input"), text = inp.value.trim();
+  if (!text) return;
+  inp.value = "";
+  addOps([["madd", {item: newId(), section: form.dataset.ms, text}]]);
+});
 const pcv = $("#pc-view");
 $("#pc-prev").onclick = () => pcStep(-1);
 $("#pc-next").onclick = () => pcStep(1);
@@ -2316,6 +2556,13 @@ document.addEventListener("contextmenu", (ev) => {
   if (t.closest("#pc-menu, .pc-ov") || !t.closest("#pc")) return;
   const ed = canEdit();
   let items;
+  if (t.closest("#pc-memo")) {  // 메모 칸: 메모 메뉴 (보기 전용이면 이유), 빈 곳은 접기 + 일반 메뉴
+    const mrow = t.closest("li[data-mid]");
+    items = mrow ? (ed ? memoMenu(mrow.dataset.mid) : viewOnlyMenu())
+      : [{label: lsGet(PC_MEMO_FOLD) === "1" ? "메모 펴기" : "메모 접기", fn: toggleMemoFold}, "-", ...generalMenu()];
+    openMenu(ev.clientX, ev.clientY, items);
+    return;
+  }
   const li = t.closest(".cl li[data-id]"), od = t.closest(".odp li[data-id]"), card = t.closest(".card");
   if (li && pc.mode === "day") {
     const id = li.dataset.id;
