@@ -17,7 +17,7 @@
   --accent: #2348C9; --on-accent: #FFFFFF; --pressed: #D7E0F8; --check-border: #8A94A3;
   --disabled-fg: #A0A8B3; --disabled-bg: #F3F4F6; --check-svg: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Cpath d='M3.4 8.4l3.1 3.1 6.1-6.8' fill='none' stroke='white' stroke-width='2.2' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
   --red: #E5484D; --blue: #2F6FED; --star: #F2A900;
-  --out: #F9FAFB; --today: #EAF2FF; --sel: #E6ECFB; --overdue-bg: #FFF7F7; --overdue: #B4232A;
+  --out: #F9FAFB; --today: #EAF2FF; --today-page: #E7EFFC; --sel: #E6ECFB; --overdue-bg: #FFF7F7; --overdue: #B4232A;
 }
 /* 다크: 기기 설정을 따르고, PC 화면 설정에서 이 브라우저만 라이트/다크로 정할 수 있다 (<html data-theme>) */
 @media (prefers-color-scheme: dark) {
@@ -26,7 +26,7 @@
     --accent: #7B96FF; --on-accent: #0F1424; --pressed: #38446B; --check-border: #8792A1;
     --disabled-fg: #6B7380; --disabled-bg: #2A2E35; --check-svg: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Cpath d='M3.4 8.4l3.1 3.1 6.1-6.8' fill='none' stroke='%230F1424' stroke-width='2.2' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
     --red: #F26B70; --blue: #6E9DFF; --star: #F5C542;
-    --out: #232528; --today: #22324F; --sel: #2C3656; --overdue-bg: #352325; --overdue: #FF8C91;
+    --out: #232528; --today: #22324F; --today-page: #1E2A3C; --sel: #2C3656; --overdue-bg: #352325; --overdue: #FF8C91;
   }
 }
 :root[data-theme="dark"] {
@@ -35,7 +35,7 @@
   --accent: #7B96FF; --on-accent: #0F1424; --pressed: #38446B; --check-border: #8792A1;
   --disabled-fg: #6B7380; --disabled-bg: #2A2E35; --check-svg: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Cpath d='M3.4 8.4l3.1 3.1 6.1-6.8' fill='none' stroke='%230F1424' stroke-width='2.2' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
   --red: #F26B70; --blue: #6E9DFF; --star: #F5C542;
-  --out: #232528; --today: #22324F; --sel: #2C3656; --overdue-bg: #352325; --overdue: #FF8C91;
+  --out: #232528; --today: #22324F; --today-page: #1E2A3C; --sel: #2C3656; --overdue-bg: #352325; --overdue: #FF8C91;
 }
 :root[data-theme="light"] { color-scheme: light; }
 * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
@@ -269,6 +269,7 @@ html.pc #status button { padding: 1px 8px; font-size: 9pt; }
 
 /* 일 보기: 머리, 밀린 일, 섹션 카드 */
 .dv { position: absolute; inset: 0; overflow-y: auto; padding: 10px 12px 12px; display: flex; flex-direction: column; gap: 8px; }
+.dv.today { background: var(--today-page); }  /* 오늘을 보는 일 보기는 바탕을 살짝 다르게 (PC 프로그램과 같다) */
 .dhead { flex: none; display: flex; align-items: baseline; gap: 8px; }
 .dtitle { font-size: 14.5pt; font-weight: bold; }
 .dtitle.r, .dhol { color: var(--red); } .dtitle.b { color: var(--blue); }
@@ -695,6 +696,14 @@ async function unlockToken() {
 
 // ------------------------------------------------------------ 폰에서 고치기
 const canEdit = () => Boolean(token && memKey && snap && snap.edit !== false);
+// 보기 전용에서 체크·★·수정을 누르면 조용히 무시하지 않고 이유와 연결 방법을 알린다 (2026-10-30)
+function viewOnlyHint() {
+  if (!snap) return;
+  if (snap.edit === false) toast("PC 설정에서 폰·브라우저 수정이 꺼져 있어요.");
+  else if (PC) pairDialog(true);
+  else toast(APP ? "보기 전용이에요. ⚙ → 「QR로 연결」을 누르면 고칠 수 있어요."
+    : "보기 전용이에요. PC 설정 → 모바일 → 「폰 연결 QR」을 폰 카메라로 찍으면 고칠 수 있어요.");
+}
 
 function loadPending() {
   try { const p = JSON.parse(lsGet(PENDING_STORE) || "[]"); return Array.isArray(p) ? p : []; }
@@ -1269,7 +1278,8 @@ $("#day").addEventListener("click", (ev) => {
   }
   const mli = ev.target.closest("li[data-mid]");
   if (mli) {
-    const m = canEdit() && findMemo(mli.dataset.mid);
+    if (!canEdit()) { viewOnlyHint(); return; }
+    const m = findMemo(mli.dataset.mid);
     if (!m) return;
     if (ev.target.closest(".ck")) addOps([["mdone", {item: m.id, done: !m.done}]]);
     else if (ev.target.closest(".stb")) addOps([["mstar", {item: m.id, star: !m.star}]]);
@@ -1277,7 +1287,8 @@ $("#day").addEventListener("click", (ev) => {
     return;
   }
   const li = ev.target.closest("li[data-id]");
-  if (!li || !canEdit()) return;
+  if (!li) return;
+  if (!canEdit()) { viewOnlyHint(); return; }
   const e = findEntry(li.dataset.id);
   if (!e) return;
   if (ev.target.closest(".ck")) addOps([["done", {item: e.id, done: !e.done}]]);
@@ -1794,7 +1805,7 @@ function renderPcDay(v) {
   const ed = canEdit(), k = pc.cur, tk = iso(new Date());
   const keep = keepDay(v);
   const diff = Math.round((fromIso(k) - fromIso(tk)) / 864e5), hol = snap.holidays[k];
-  let html = `<div class="dv${ed ? " edit" : ""}"><div class="dhead"><span class="dtitle ${dayCls(k)}">${fullLabel(k)}</span>`
+  let html = `<div class="dv${ed ? " edit" : ""}${diff === 0 ? " today" : ""}"><div class="dhead"><span class="dtitle ${dayCls(k)}">${fullLabel(k)}</span>`
     + (hol ? `<span class="dhol">${esc(hol)}</span>` : "") + `<span class="sp"></span>`
     + `<span class="muted">${diff === 0 ? "오늘" : `${Math.abs(diff)}일 ${diff > 0 ? "후" : "전"}`}</span></div>` + overdueHtml(ed);
   const entries = data.days[k] || [], n = data.sections.length;
@@ -2277,8 +2288,9 @@ function viewOnlyMenu() {
   return [...head, "-", ...generalMenu().filter((it) => it === "-" || it.fn !== pairDialog)];
 }
 // 수정 연결: PC 프로그램에서 복사한 연결 주소를 붙여 넣는다 (주소창에 붙여 넣는 것과 같다)
-function pairDialog() {
-  const body = `<div style="line-height:1.8">1. PC 프로그램에서 ⚙ 설정 → 모바일 탭 → 「폰 연결 QR…」을 누릅니다.<br>`
+function pairDialog(blocked) {
+  const why = blocked === true ? `<div><b>지금은 보기 전용이라 체크·수정이 되지 않아요.</b> 이 브라우저를 한 번 연결하면 고칠 수 있어요.</div>` : "";
+  const body = why + `<div style="line-height:1.8">1. PC 프로그램에서 ⚙ 설정 → 모바일 탭 → 「폰 연결 QR…」을 누릅니다.<br>`
     + `2. 「연결 주소 복사」를 누릅니다.<br>3. 아래 칸에 붙여 넣고(Ctrl+V) 「연결」을 누릅니다.</div>`
     + `<input id="pr-code" placeholder="https://…/#pair=1.…" aria-label="연결 주소" style="width:100%">`
     + `<div class="muted">이 브라우저에서 한 번만 하면 됩니다. 연결 주소에는 GitHub 토큰이 보기 비밀번호로 암호화되어 들어 있습니다.</div>`;
@@ -2377,7 +2389,9 @@ function clearDrop() {
 const pcm = $("#pc-memo");
 pcm.addEventListener("click", (ev) => {
   if (ev.target.closest(".mtg")) { toggleMemoFold(); return; }
-  const li = ev.target.closest("li[data-mid]"), m = li && canEdit() && findMemo(li.dataset.mid);
+  const li = ev.target.closest("li[data-mid]");
+  if (li && !canEdit() && ev.target.closest(".cbx, .pst")) { viewOnlyHint(); return; }
+  const m = li && canEdit() && findMemo(li.dataset.mid);
   if (!m) return;
   if (ev.target.closest(".cbx")) addOps([["mdone", {item: m.id, done: !m.done}]]);
   else if (ev.target.closest(".pst")) addOps([["mstar", {item: m.id, star: !m.star}]]);
@@ -2421,7 +2435,10 @@ pcv.addEventListener("click", (ev) => {
     return;
   }
   if (ev.target.closest(".odp .tg")) { lsSet(PC_FOLD_STORE, lsGet(PC_FOLD_STORE) === "1" ? null : "1"); render(); return; }
-  if (!canEdit()) return;
+  if (!canEdit()) {
+    if (ev.target.closest(".odp .all, .odp .tt, .odp .tx, li[data-id] .cbx, li[data-id] .pst")) viewOnlyHint();
+    return;
+  }
   if (ev.target.closest(".odp .all")) { moveTargets(data.overdue.map((e) => ({id: e.id, e})), () => ({date: iso(new Date())})); return; }
   const li = ev.target.closest("li[data-id]");
   const e = li && findEntry(li.dataset.id);
@@ -2470,7 +2487,8 @@ pcv.addEventListener("mouseover", (ev) => {
 pcv.addEventListener("mouseleave", hideTip);
 
 pcv.addEventListener("dblclick", (ev) => {
-  if (pc.mode !== "day" || !canEdit()) return;
+  if (pc.mode !== "day") return;
+  if (!canEdit()) { if (ev.target.closest(".chead, .cl li[data-id]")) viewOnlyHint(); return; }
   const head = ev.target.closest(".chead");
   if (head) { sectionDialog(data.sections.find((s) => s.id === head.closest(".card").dataset.s)); return; }
   const li = ev.target.closest(".cl li[data-id]");
